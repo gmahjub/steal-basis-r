@@ -1,0 +1,12 @@
+Package: RstealBasis
+Type: Package
+Title: Steal Basis, finding free money in the markets
+Version: 0.1.0
+Author: Ghazy Mahjub
+Maintainer: Ghazy Mahjub <traderghazy@gmail.com>
+Description: Clean, organize, and analyze market data, design informed strategies.
+License: MIT License
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1
+Suggests: testthat
