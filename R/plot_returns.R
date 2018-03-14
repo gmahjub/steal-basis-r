@@ -6,5 +6,3 @@ plot_log_returns_hist<-function(ticker, price_type_func = "Ad", num_bins = 100, 
     geom_density() +
     geom_rug(alpha=alpha)
 }
-
-quantile_distribution

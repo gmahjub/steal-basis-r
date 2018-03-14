@@ -20,7 +20,7 @@ filter_benchmark_by_sector<-function(tibble_obj, sector_name){
 
 #' create_sector_benchmark_tibble
 #'
-#' This function takes a inputted tibble objectk, which results from a call to
+#' This function takes a inputted tibble object, which results from a call to
 #' tq_index(). tq_index takes as a parameter an index name (where valid index
 #' names can be found with a call to tq_index_options). The returned tibble from
 #' tq_index("DOW") for example must have a sector column. This function is part

@@ -14,6 +14,7 @@
 #'
 #' @examples
 get_benchmark_period_returns_tidy<-function(etf_to_sector_mapping_tibble, start_date="2017-11-01", periodicity="daily", price_type="adjusted"){
+  devtools::use_package("tidyquant")
   prices <- etf_to_sector_mapping_tibble %>% tq_get(get="stock.prices", from=start_date) %>% group_by(ticker, sector)
   #etf_period_returns <- prices %>% tq_transmute(select=adjusted, mutate_fun = periodReturn, period=period_size, type='log')
   etf_period_returns <- prices %>% tq_transmute(select = price_type, mutate_fun=periodReturn, period=period_size, type='log')

@@ -22,7 +22,6 @@ get_all_stocks_in_index<-function(index_name, start_date="2007-01-01", stuff_to_
   # index name is as named in tq_index_optons()
   # stuff_to_get could be stock.prices, financials, key.ratios, key.stats, dividends, splits, or a combination of
   tibble_obj<-tq_index(index_name) %>% tq_get(get="stock.prices", from=start_date)
-  #tibble_obj<-tq_index(index_name) %>% tq_get(get=stuff_to_get, from=start_date)
   return(tibble_obj)
 }
 

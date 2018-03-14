@@ -275,7 +275,6 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
     list_of_tickers<-c(as.character(list_of_etf_tickers), as.character(list_of_tickers))
   }
   sapply(list_of_tickers, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir)
-  #sapply(list_of_tickers, FUN = eod_batch_av_helper, path_to_ticker_dir = path_to_ticker_dir)
 }
 
 #' eod_batch_av_intraday_error_helper
