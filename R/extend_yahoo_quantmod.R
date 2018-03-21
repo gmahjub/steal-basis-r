@@ -16,14 +16,14 @@
 #' @export
 #'
 #' @examples
-check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2007-01-01") {
+check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2007-01-01", end_date = Sys.Date(), write_file = FALSE) {
   # example path below
   changed_ticker<-NA
   require(stringr)
   tf<-str_detect(string=ticker, pattern=fixed("-"))
   if (tf) {
     m <- str_replace(string=ticker, pattern=fixed("-"), replacement=".")
-    do.call("<<-", list(m, get(getSymbols(ticker, from=start_date))))
+    do.call("<<-", list(m, get(getSymbols(ticker, from=start_date, to=end_date))))
     col_names<-colnames(get(m))
     vec_new_col_nm<-c()
     for(name in col_names){
@@ -32,12 +32,14 @@ check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2
     }
     changed_ticker<-ticker
     adjustOHLC_wrapper(m)
-    write_ticker_csv(m, path_to_ticker_dir, column_names=vec_new_col_nm)
+    if (write_file){
+      write_ticker_csv(m, path_to_ticker_dir, column_names=vec_new_col_nm)
+    }
   }
   ticker_confused_with_bool <- c('C', 'T', 'F', 'NA')
   if(ticker %in% ticker_confused_with_bool){
     m <- paste(ticker, ".", ticker, sep='')
-    do.call("<<-", list(m, get(getSymbols(ticker, from=start_date))))
+    do.call("<<-", list(m, get(getSymbols(ticker, from=start_date, to=end_date))))
     col_names<-colnames(get(m))
     vec_new_col_nm<-c()
     for (name in col_names){
@@ -46,7 +48,9 @@ check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2
     }
     changed_ticker<-ticker
     adjustOHLC_wrapper(m)
-    write_ticker_csv(m, path_to_ticker_dir, column_names = vec_new_col_nm)
+    if (write_file){
+      write_ticker_csv(m, path_to_ticker_dir, column_names = vec_new_col_nm)
+    }
   }
   return(changed_ticker)
 }
@@ -98,18 +102,20 @@ adjustOHLC_wrapper<-function(tickers){
 #' @param start_date start_date of the time series data to retrieve.
 #' @param yahoo_stock_prices_dir yahoo stock price data directory.
 #'
-#' @return a lit of ticker
+#' @return a list of ticker
 #' @export
 #'
 #' @examples
-yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2017-11-01"){
+yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2017-11-01", end_date = Sys.Date(), write_file = TRUE){
   path_to_ticker_dir <- yahoo_stock_prices_dir
-  list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names, path_to_ticker_dir, start_date=start_date)
+  list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names, path_to_ticker_dir, start_date=start_date, end_date = end_date, write_file=write_file)
   list_of_changed_tickers<-list_of_changed_tickers[!is.na(list_of_changed_tickers)]
   tickers<-setdiff(tickers, list_of_changed_tickers)
   for (ticker in tickers){do.call("<<-", list(ticker, get(getSymbols(ticker, from=start_date))))}
   adjustOHLC_wrapper(tickers)
-  lapply(tickers, FUN=write_ticker_csv, path_to_ticker_dir = path_to_ticker_dir)
+  if (write_file) {
+    lapply(tickers, FUN=write_ticker_csv, path_to_ticker_dir = path_to_ticker_dir)
+  }
   ## there is a known bug in here, we do not include in this list the tickers that had to be changed due to R incompaitibility
   ## GM - 2/6/2018
   return(tickers)
