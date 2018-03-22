@@ -1,38 +1,40 @@
-on_balance_volume_tidy<-function(tibble_obj){
-  tibble_obj
-}
-
-on_balance_volume_xts<-function(ticker, xts_obj=NA){
-  if (is.na(xts_obj)){
-    xts_obj<-get(ticker)
-  }
-  return(obv)
-}
-
-calc_rolling_obv<-function(ticker, win_size = 2, period = "days"){
+calc_rolling_obv<-function(ticker, win_size = 2){
   xts_obj<-get(ticker)
   diff_col<-diff(Ad(xts_obj))
-  colnames(diff_col)<- paste(ticker, "Diff_Adj_Cl", sep = ".")
-  xts_obj<-merge(xts_obj, diff_col)
-  price_col_nm<-paste(ticker, "Diff_Adj_Cl", sep=".")
-  vol_col_nm<-paste(ticker, "Volume", sep = ".")
-  y<-ifelse(xts_obj[,price_col_nm] > 0, xts_obj[,vol_col_nm], xts_obj[,vol_col_nm]*-1.0)
-  colnames(y)<-paste(ticker, "volume_obv_adj", sep = ".")
-  xts_obj<-merge(xts_obj, y)
-  return(xts_obj)
-  #period.apply(xts_obj, INDEX=ep, FUN = function(z) ifelse(z[price_col_nm] > 0, y<-z[vol_col_nm], y<-z[vol_col_nm]*-1) merge(z))
+  colnames(diff_col)<- paste(ticker, "Px_Chg_Adj_Cl", sep = ".")
+  volume_col<-Vo(xts_obj)
+  y<-ifelse(diff_col > 0, volume_col, volume_col*-1.0)
+  colnames(y)<-paste(ticker, "volume_ob_adj", sep = ".")
+  rolling_obv <- rollapply(y, width = win_size, FUN = sum)
+  colnames(rolling_obv)<-paste(ticker, "rolling_obv", sep = ".")
+  return(rolling_obv)
+}
+create_obv_data<-function(ticker, win_size = 2, period = "days"){
+  xts_obj<-get(ticker)
+  diff_col<-diff(Ad(xts_obj))
+  colnames(diff_col)<- paste(ticker, "Px_Chg_Adj_Cl", sep = ".")
+  volume_col<-Vo(xts_obj)
+  y<-ifelse(diff_col > 0, volume_col, volume_col*-1.0)
+  colnames(y)<-paste(ticker, "volume_ob_adj", sep = ".")
 }
 
-calc_rolling_obv_helper<-function(x, ticker){
-  price_col_nm<-paste(ticker, "Diff_Adj_Cl", sep=".")
-  vol_col_nm<-paste(ticker, "Volume", sep = ".")
-  if (x[price_col_nm] > 0){
-    y<-x[vol_col_nm]
-  } else {
-    y<-x[vol_col_nm]*-1
-  }
-  colnames(y)<-"volume_obv_adj"
-  x<-merge(x, y)
-  return(x)
+cal_period_obv<-function(ticker){
+  xts_obj<-get(ticker)
   
+}
+
+calc_period_obv_helper<-function(xts_obj){
+  xts_obj<-get(ticker)
+  diff_col<-diff(Ad(xts_obj))
+  volume_col<-Vo(xts_obj)
+  
+  
+}
+
+calc_volume_moving_avg<-function(ticker, win_size = 30){
+  xts_obj<-get(ticker)
+  volume_col<-Vo(xts_obj)
+  rolling_avg_volume<-rolling_volume<-rollapply(volume_col, width = win_size, FUN  = mean)
+  colnames(rolling_avg_volume)<-paste(ticker, win_size, "period.Avg.Voume", sep = ".")
+  return(rolling_avg_volume)
 }
