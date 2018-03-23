@@ -13,7 +13,7 @@
 #' @export
 #'
 #' @examples
-av_Main_retrieve_and_write<-function(tickers, path_to_ticker_dir, remote_src="av", start_date="2017-11-01"){
+av_Main_retrieve_and_write<-function(tickers, path_to_ticker_dir, remote_src="av", start_date="2017-11-01", end_date = Sys.Date()){
   #using getSymbols() here and using xts only, not tidy yet
   list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names_av, path_to_ticker_dir, start_date=start_date, remote_src=remote_src)
   list_of_changed_tickers<-list_of_changed_tickers[!is.na(list_of_changed_tickers)]
@@ -39,7 +39,7 @@ av_Main_retrieve_and_write<-function(tickers, path_to_ticker_dir, remote_src="av
 #' @export
 #'
 #' @examples
-check_Rcompat_ticker_names_av<-function(path_to_ticker_dir, start_date, remote_src){
+check_Rcompat_ticker_names_av<-function(path_to_ticker_dir, start_date, remote_src, end_date = Sys.Date()){
   setDefaults(getSymbols.av, api.key = get_alphavantage_api_key())
   changed_ticker<-NA
   require(stringr)

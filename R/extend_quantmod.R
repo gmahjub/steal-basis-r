@@ -10,7 +10,7 @@
 #' column named "ClClDailyRets" and appends it onto existing xts object in
 #' memory and assigns this new object to memory with name "ticker". Requires
 #' that there be an object named ticker in memory, that contains a "Close"
-#' column since we are also usind QuantMod here. This function is part of a
+#' column since we are also using QuantMod here. This function is part of a
 #' workflow. You must have called getSymbols() before this function with the
 #' auto.assign option set to TRUE.
 #'
@@ -22,7 +22,7 @@
 #' @examples
 calc_Close_to_Close_returns <- function(ticker){
   the_dataframe <-get(ticker, envir = parent.frame())
-  close_price_series<Cl(the_dataframe)
+  close_price_series<-Cl(the_dataframe)
   cl_cl_returns<-Return.calculate(close_price_series)
   cl_cl_returns<-cl_cl_returns[-1,]
   new_col_names<-c(names(the_dataframe), paste(ticker, ".","ClClRets", sep=''))
