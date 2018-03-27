@@ -106,7 +106,7 @@ adjustOHLC_wrapper<-function(tickers){
 #' @export
 #'
 #' @examples
-yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2017-11-01", end_date = Sys.Date(), write_file = TRUE){
+yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2017-01-01", end_date = Sys.Date(), write_file = TRUE){
   path_to_ticker_dir <- yahoo_stock_prices_dir
   list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names, path_to_ticker_dir, start_date=start_date, end_date = end_date, write_file=write_file)
   list_of_changed_tickers<-list_of_changed_tickers[!is.na(list_of_changed_tickers)]
