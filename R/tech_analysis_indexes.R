@@ -61,16 +61,15 @@ PVI_helper<-function(volume_diff, adjCl_Rets){
 #'
 #' @examples
 calc_RSI<-function(ticker, px_type = "A", ma_period_size = 14,  
-                   maType = list(maUp=list(EMA, ratio=1/5), 
-                                 maDown = list(EMA, ratio=1/5))){
+                   maType = list(maUp=list(EMA, ratio = NULL), 
+                                 maDown = list(EMA, ratio = NULL))){
   xts_obj<-get(ticker)
   px_series<-Ad(xts_obj)
-  if (px_type == "O"){ price_series<-Op(xts_obj) 
-  } else if (px_type == "H") { px_series<-Hi(xts_obj) 
-  } else if (px_type == "L") { px_series<-Lo(xts_obj) 
-  } else if (px_type == "C") { px_series<-Cl(xts_obj) 
-  } else if (px_type == "V") { px_series<-Vo(xts_obj) } 
-  #rsi_series<-RSI(px_series)
+  if (px_type == "O"){ price_series<-Op(xts_obj)
+  } else if (px_type == "H") { px_series<-Hi(xts_obj)
+  } else if (px_type == "L") { px_series<-Lo(xts_obj)
+  } else if (px_type == "C") { px_series<-Cl(xts_obj)
+  } else if (px_type == "V") { px_series<-Vo(xts_obj) }
   rsi_series<-RSI(px_series, n = ma_period_size, maType = maType)
   return (rsi_series)
 }
