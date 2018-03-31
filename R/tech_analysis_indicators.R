@@ -133,7 +133,7 @@ PVT_helper<-function(volume, rets){
 #' @export
 #'
 #' @examples
-calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = 1/5){
+calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = NULL){
   xts_obj<-get(ticker)
   adj_cl_px_series<-Ad(xts_obj)
   px_series <- HLC(xts_obj)
@@ -153,9 +153,46 @@ calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType 
   return (returned_xts)
 }
 
-calc_PercentB<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = 1/5){
+#' calc_PercentB
+#' 
+#' Utilizes the Bolinger Bands function (BBands)
+#'
+#' @param ticker 
+#' @param px_type 
+#' @param window_size 
+#' @param sd 
+#' @param maType 
+#' @param ratio 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_PercentB<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = NULL){
   BBands_xts<-calc_BBands(ticker, px_type, window_size, sd, maType, ratio)
   return (BBands_xts$pctB)
+}
+
+#' calc_Bandwidth
+#' 
+#' Utilizes the BBands function.
+#'
+#' @param ticker 
+#' @param px_type 
+#' @param window_size 
+#' @param sd 
+#' @param maTYpe 
+#' @param ratio 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_Bandwidth<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maTYpe = EMA, ratio = NULL){
+  BBands_xts <- calc_BBands(ticker, px_type, window_size, sd, maType, ratio)
+  BBands_xts<-na.omit(BBands_xts)
+  bandwidth <- BBands_xts$up - BBands_xts$dn
+  return(bandwidth)
 }
 
 #' calc_Volume_ROC
@@ -173,6 +210,33 @@ calc_Volume_ROC<-function(ticker, period_size = 1){
   volume_ROC<-ROC(volume, n = period_size, type = c("discrete"))
   colnames(volume_ROC)<-paste(ticker, "VROC", sep = ".")
   return(volume_ROC)
+}
+
+#' calc_Px_ROC
+#'
+#' @param ticker 
+#' @param px_type 
+#' @param period_size 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_Px_ROC<-function(ticker, px_type = "A", period_size = 1){
+  xts_obj <- get(ticker)
+  px_series <-Ad(xts_obj)
+  if (px_type == "O"){
+    px_series <- Op(xts_obj)
+  } else if (px_type == "H"){
+    px_series <- Hi(xts_obj)
+  } else if (px_type == "L"){
+    px_series <- Lo(xts_obj)
+  } else if (px_type == "C"){
+    px_series <- Cl(xts_obj)
+  }
+  price_ROC<-ROC(px_series, n = period_size, type = C("discrete"))
+  colnames(price_ROC)<-paste(ticker, "PxROC", sep = ".")
+  return (price_ROC)
 }
 
 #' calc_williamsAD

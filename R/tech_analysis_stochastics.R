@@ -102,21 +102,27 @@ calc_williams_percentR<-function(ticker, nFastK = 14, nFastD = 3, maType = EMA, 
 
 #' calc_chaikin_volatility
 #'
-#' @param ticker 
-#' @param window_size 
-#' @param maType 
-#' @param ratio 
-#' @param wilder 
+#' NOt sure if we want to use this as is or we want to modify it. This is
+#' measuring volatility, specifically, the change in range between time t and
+#' time t-window_size. There is a limit to how negative this can go, but much
+#' less of a limit as to how big it can get since volatility can grow infinitely
+#' but is limited to 0 on the down side.
+#'
+#' @param ticker
+#' @param window_size
+#' @param maType
+#' @param ratio
+#' @param wilder
 #'
 #' @return
 #' @export
 #'
 #' @examples
-calc_chaikin_volatility<-function(ticker, window_size=10, maType = EMA, ratio = NULL, wilder = FALSE){
+calc_chaikin_volatility<-function(ticker, window_size=6, maType = EMA, ratio = NULL, wilder = FALSE){
   xts_obj<-get(ticker)
   hlc_px_series<-HLC(xts_obj)
   hl_px_series<-hlc_px_series[,1:2]
-  cv_xts<-chaikinVolatility(hl_px_series)# n = window_size, maType = maType, ratio = ratio, wilder = wilder)
+  cv_xts<-chaikinVolatility(hl_px_series, n = window_size, maType = maType, ratio = ratio, wilder = wilder)
   return_xts<-merge(cv_xts, Ad(xts_obj))
   return(return_xts)
 }
@@ -125,6 +131,23 @@ calc_volatility<-function(ticker){
   xts_obj<-get(ticker)
 }
 
+#' calc_stoch_of_RSI
+#'
+#' Calculate stochastics of RSI signal. Must calculate the RSI signal seperately
+#' and send as input to this funciton.
+#'
+#' @param rsi_xts
+#' @param nFastK
+#' @param nFastD
+#' @param nSlowD
+#' @param maType
+#' @param bounded
+#' @param smooth
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_stoch_of_RSI<-function(rsi_xts, nFastK = 14, nFastD = 3, nSlowD = 3, maType = list(list(EMA), list(SMA), list(EMA, wilder = TRUE)),
                             bounded = TRUE, smooth = 1){
   stoch_vals<-stoch(rsi_xts, nFastK = nFastK, nFastD = nFastD, nSlowD = nSlowD, maType = maType, bounded = bounded, smooth = smooth)
@@ -160,4 +183,95 @@ calc_SMI<-function(ticker, n = 13, nFast = 2, nSlow = 25, nSig = 9,
   colnames(return_xts)<-c(paste(ticker, "SMI", sep = "."), paste(ticker, "signal", sep = "."), names(adCl_px_series), 
                           paste(ticker, "SMI-Signal", sep = "."))
   return(return_xts)
+}
+
+#' calc_period_historical_volatility
+#'
+#' We are calculating the historical volatility of the data as is passed into
+#' the function. So if the data is daily data, and the period type is "weeks",
+#' the we will return the volatility of daily returns, for every "num_periods"
+#' weeks period size. For example, if num_periods = =6, and period_tyhpe is
+#' "weeks", the we will return the volatility (sd) of daily returns calculated
+#' every 6 weeks. If you want the volatility of weekly returns, then you must
+#' pass in data that is weekly data.
+#'
+#' @param ticker
+#' @param px_type
+#' @param period_type
+#' @param num_periods
+#' @param down_sample 
+#' @param down_sample_to 
+#' @param down_sample_k 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_period_historical_volatility<-function(ticker, px_type = "A", period_type = "weeks", 
+                                            num_periods = 1, down_sample = FALSE, 
+                                            down_sample_to=NULL, down_sample_k = 1){
+  xts_obj<-get(ticker)
+  if (down_sample){
+    if (is.null(down_sample_to)){
+      stop("If down_sample is TRUE, down_sample_to cannot be NULL, must specify one of: 
+           days, weeks, months, etc..., of lower periodicity than the input data")
+    }
+    # not sure if doing the downsample actually creates new High and Low...i.e. high of the week/month/quarter
+    # or if it just takes the High/Low of the endpoint. TODO: confirm this and fix if neccessary.
+    xts_obj<-to.period(xts_obj, period = period_type, k = down_sample_k  )
+  }
+  px_series<-Ad(xts_obj)
+  if (px_type == "O"){
+    px_series<-Op(xts_obj)
+  } else if (px_type == "H"){
+    px_series <- Hi(xts_obj)
+  } else if (px_type == "L"){
+    px_series <- Lo(xts_obj)
+  } else if (px_type == "C'"){
+    px_series<-Cl(xts_obj)
+  } else if (px+type == "V"){
+    px_series<-Vo(xts_obj)
+  }
+  rets_series_xts<-ROC(px_series, type = "continuous")
+  rets_series_xts<-na.omit(rets_series_xts)
+  ep<-endpoints(rets_series_xts, on = period_type, k = num_periods)
+  cnt<-period.apply(rets_series_xts, INDEX = ep, FUN = length )
+  sd_series<-period.apply(rets_series_xts, INDEX = ep, FUN = sd)
+  hist_vol_series<-sd_series/sqrt(cnt)
+  return (hist_vol_series)  
+}
+
+#' calc_rolling_historical_volatility
+#'
+#' takes the input data as is, and calculates a rolling historical volatility,
+#' with a look back of <window_size> periods, whatever those periods may be. Not
+#' periodicity changing is done in this function. You must pass in the data
+#' exactly as you want it to be used.
+#'
+#' @param ticker
+#' @param px_type
+#' @param window_size
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_rolling_historical_volatility<-function(ticker, px_type = "A", window_size = 5){
+  xts_obj<-get(ticker)
+  px_series<-Ad(xts_obj)
+  if (px_type == "O"){
+    px_series<-Op(xts_obj)
+  } else if (px_type == "H"){
+    px_series <- Hi(xts_obj)
+  } else if (px_type == "L"){
+    px_series <- Lo(xts_obj)
+  } else if (px_type == "C'"){
+    px_series<-Cl(xts_obj)
+  } else if (px+type == "V"){
+    px_series<-Vo(xts_obj)
+  }
+  rets_series_xts<-ROC(px_series, type = "continuous")
+  rets_series_xts<-na.omit(rets_series_xts)
+  rolling_sd_series<-rollapply(rets_series_xts, width = window_size, FUN = sd )
+  return (rolling_sd_series)
 }
