@@ -8,7 +8,7 @@
 #' (getSymbols) where the wrapper we are using here is
 #' "yahoo_Main_retrieve_and_write()" function.
 #'
-#' @param etf_to_sector_mapping_tibble
+#' @param etf_to_sector_mapping_tibble etf name to sector name mapping data object, tibble format.
 #' @param periodicity options are: daily, weekly, monthly, quarterly, yearly
 #' @param start_date in string format of: YYYY-MM-DD
 #'
