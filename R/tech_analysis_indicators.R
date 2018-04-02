@@ -234,11 +234,8 @@ calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType 
 
 #' calc_PercentB
 #' 
-<<<<<<< HEAD
 #' Utilizes the Bolinger Bands function (BBands)
-=======
 #' Return PercentB from Bolinger Bands calculation.
->>>>>>> 90b21566b6611e5b4a6bd7967c1cc9e1114cf074
 #'
 #' @param ticker 
 #' @param px_type 
@@ -251,11 +248,7 @@ calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType 
 #' @export
 #'
 #' @examples
-<<<<<<< HEAD
 calc_PercentB<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = NULL){
-=======
-calc_PercentB<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = 1/5){
->>>>>>> 90b21566b6611e5b4a6bd7967c1cc9e1114cf074
   BBands_xts<-calc_BBands(ticker, px_type, window_size, sd, maType, ratio)
   return (BBands_xts$pctB)
 }
