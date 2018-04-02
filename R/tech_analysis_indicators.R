@@ -1,3 +1,20 @@
+#' calc_period_Median_price
+#'
+#' Calculate the median price of a specific period, of size
+#' num_periods-period_type. Meaning if period_type = weeks and num_periods is 2,
+#' then the period to calculate the median price for is 2 weeks, and a new value
+#' will be calculated every 2 weeks. This is NOT a rolling calculaion.
+#'
+#' @param ticker
+#' @param px_type
+#' @param period_type
+#' @param num_periods
+#'
+#' @return a single column xts with the median labeled
+#'   <ticker>.<num_periods>.<period_type>.Median
+#' @export
+#'
+#' @examples
 calc_period_Median_price<-function(ticker, px_type = "A", period_type = 'weeks', num_periods = 1){
   # TTR::runMedian()
   xts_obj<-get(ticker)
@@ -12,6 +29,21 @@ calc_period_Median_price<-function(ticker, px_type = "A", period_type = 'weeks',
   return(period_median)
 }
 
+#' calc_rolling_Median_price
+#'
+#' Calculate median on a rolling basis, with the size of the window specified by
+#' window_size. Note that the window size is not a number of days or weeks or
+#' anything like that. It is simply the number of periods, where periods is
+#' whatever perciodicity the data is in.
+#'
+#' @param ticker
+#' @param px_type
+#' @param window_size
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_rolling_Median_price<-function(ticker, px_type = "A", window_size = 5){
   xts_obj<-get(ticker)
   px_series<-Ad(xts_obj)
@@ -20,9 +52,23 @@ calc_rolling_Median_price<-function(ticker, px_type = "A", window_size = 5){
   else if (px_type == "L") { px_series <- Lo(xts_obj) }
   else if (px_type == "C") { px_series <- Cl(xts_obj) }
   median_px_series<-runMedian(px_series, n = window_size)
+  colnames(median_px_series)<-paste(ticker, "Rolling", window_size, "PeriodMedian", sep = ".")
   return (median_px_series)
 }
 
+#' calc_period_Highest_High_price
+#'
+#' Return the highest price of a specified period, where the highest price is
+#' the Highest High
+#'
+#' @param ticker
+#' @param period_type
+#' @param num_periods
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_period_Highest_High_price<-function(ticker, period_type = 'weeks', num_periods=1){
   xts_obj<-get(ticker)
   px_series<-Hi(xts_obj)
@@ -32,6 +78,15 @@ calc_period_Highest_High_price<-function(ticker, period_type = 'weeks', num_peri
   return(period_highest_high)
 }
 
+#' calc_rolling_Highest_High_price
+#'
+#' @param ticker 
+#' @param window_size 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_rolling_Highest_High_price<-function(ticker, window_size = 5){
   xts_obj<-get(ticker)
   px_series<-Hi(xts_obj)
@@ -40,6 +95,18 @@ calc_rolling_Highest_High_price<-function(ticker, window_size = 5){
   return(highest_high_px_series)
 }
 
+#' calc_period_Lowest_Low_price
+#' 
+#' Return an xts object with the lowest low of a specified period.
+#'
+#' @param ticker 
+#' @param period_type 
+#' @param num_periods 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_period_Lowest_Low_price<-function(ticker, period_type = 'weeks', num_periods = 1){
   xts_obj <- get(ticker)
   px_series<-Lo(xts_obj)
@@ -49,6 +116,18 @@ calc_period_Lowest_Low_price<-function(ticker, period_type = 'weeks', num_period
   return (period_lowest_low)
 }
 
+#' calc_rolling_Lowest_Low_price
+#'
+#' Rolling lowest low where the period size is a rolling window of size
+#' window_size.
+#'
+#' @param ticker
+#' @param window_size
+#'
+#' @return
+#' @export
+#'
+#' @examples
 cal_rolling_Lowest_Low_price<-function(ticker, window_size = 5){
   xts_obj <- get(ticker)
   px_series <- Lo(xts_obj)
@@ -155,7 +234,11 @@ calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType 
 
 #' calc_PercentB
 #' 
+<<<<<<< HEAD
 #' Utilizes the Bolinger Bands function (BBands)
+=======
+#' Return PercentB from Bolinger Bands calculation.
+>>>>>>> 90b21566b6611e5b4a6bd7967c1cc9e1114cf074
 #'
 #' @param ticker 
 #' @param px_type 
@@ -168,7 +251,11 @@ calc_BBands<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType 
 #' @export
 #'
 #' @examples
+<<<<<<< HEAD
 calc_PercentB<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = NULL){
+=======
+calc_PercentB<-function(ticker, px_type = "HLC", window_size = 20, sd = 2, maType = EMA, ratio = 1/5){
+>>>>>>> 90b21566b6611e5b4a6bd7967c1cc9e1114cf074
   BBands_xts<-calc_BBands(ticker, px_type, window_size, sd, maType, ratio)
   return (BBands_xts$pctB)
 }
@@ -303,4 +390,3 @@ calc_and_use_williamsAD<-function(ticker, run_win = 21){
                  paste(ticker, "Adjusted", sep = "."))
   return(y)
 }
-
