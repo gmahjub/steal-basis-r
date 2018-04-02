@@ -58,6 +58,20 @@ calc_fast_stochastics_percentK<-function(ticker, nFastK = 14, nFastD = 3, nSlowD
   return(stoch_vals$fastK)
 }
 
+#' calc_fast_stochastics_percentD
+#'
+#' @param ticker 
+#' @param nFastK 
+#' @param nFastD 
+#' @param nSlowD 
+#' @param maType 
+#' @param bounded 
+#' @param smooth 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_fast_stochastics_percentD<-function(ticker, nFastK = 14, nFastD = 3, nSlowD = 3, maType = list(list(EMA), list(SMA), list(EMA, wilder = FALSE)),
                                          bounded = TRUE, smooth = 1){
   # TTR:stoch()
@@ -65,12 +79,40 @@ calc_fast_stochastics_percentD<-function(ticker, nFastK = 14, nFastD = 3, nSlowD
   return(stoch_vals$fastD)
 }
 
+#' calc_slow_stochastics_percentK
+#'
+#' @param ticker 
+#' @param nFastK 
+#' @param nFastD 
+#' @param nSlowD 
+#' @param maType 
+#' @param bounded 
+#' @param smooth 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_slow_stochastics_percentK<-function(ticker, nFastK = 14, nFastD = 3, nSlowD = 3, maType = list(list(EMA), list(SMA), list(EMA, wilder = FALSE)),
                                          bounded = TRUE, smooth = 1){
   stoch_vals<-calc_stochastics(ticker, nFastK, nFastD, nSlowD, maType, bounded, smooth)
   return(stoch_vals$fastD)
 }
 
+#' calc_slow_stochastics_percerntD
+#'
+#' @param ticker 
+#' @param nFastK 
+#' @param nFastD 
+#' @param nSlowD 
+#' @param maType 
+#' @param bounded 
+#' @param smooth 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_slow_stochastics_percentD<-function(ticker, nFastK = 14, nFastD = 3, nSlowD = 3, maType = list(list(EMA), list(SMA), list(EMA, wilder = FALSE)),
                                          bounded = TRUE, smooth = 1){
   # TTR:stoch()
@@ -121,8 +163,48 @@ calc_chaikin_volatility<-function(ticker, window_size=10, maType = EMA, ratio = 
   return(return_xts)
 }
 
-calc_volatility<-function(ticker){
+#' calc_volatility
+#' 
+#' This funciton is an implementation of the volatility function from TTR
+#'
+#' @param ticker 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_simple_close_to_close_volatility<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 250){
   xts_obj<-get(ticker)
+  if (period_type == 'days'){
+    periods_per_year <- 250
+  } else if (period_type == 'weeks'){
+    periods_per_year <- 52
+  } else if (period_type == 'months'){
+    periods_per_year<-12
+  } else if (period_type == 'quarters'){
+    periods_per_year<-4
+  } else if (period_tyep == 'years'){
+    periods_per_year<-1
+  }
+  close_to_close_vol <- volatility(xts_obj, n = window_size, calc = "close", N = periods_per_year)
+  return(close_to_close_vol)
+}
+
+#' calc_OHLC_volatility
+#' 
+#' Using Garman and Klass estimator
+#'
+#' @param ticker 
+#' @param window_size 
+#' @param period_type 
+#' @param periods_per_year 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_OHLC_volatility<-function(ticker, window_size= 10, period_type = 'days', periods_per_year = 250){
+  xts_obj<-get(ticker)  
 }
 
 calc_stoch_of_RSI<-function(rsi_xts, nFastK = 14, nFastD = 3, nSlowD = 3, maType = list(list(EMA), list(SMA), list(EMA, wilder = TRUE)),

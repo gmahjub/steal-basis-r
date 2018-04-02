@@ -1,3 +1,14 @@
+#' calc_NVI
+#'
+#' Negative volume index calculator
+#'
+#' @param ticker
+#'
+#' @return an xts object with the Negative Volume Index, with column labeled
+#'   <ticker>.NVI
+#' @export
+#'
+#' @examples
 calc_NVI<-function(ticker){
   nvi <<- 100.0
   xts_obj<-get(ticker)
@@ -15,6 +26,17 @@ calc_NVI<-function(ticker){
   return(y_final[,3])
 }
 
+#' calc_PVI
+#'
+#' Calculate Positive Volume Index
+#'
+#' @param ticker
+#'
+#' @return a one column xts object with the Positive Volume Index, column
+#'   labeled <ticker>.PVI
+#' @export
+#'
+#' @examples
 calc_PVI<-function(ticker){
   pvi<<-100.0
   xts_obj<-get(ticker)
@@ -31,10 +53,32 @@ calc_PVI<-function(ticker){
   return(y)
 }
 
+#' NVI_helper
+#' 
+#' calcNVI helper method, should not be called directly.
+#'
+#' @param volume_diff 
+#' @param adjCl_Rets 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 NVI_helper<-function(volume_diff, adjCl_Rets){
   ifelse(volume_diff<=0, nvi<<-nvi, nvi<<-(adjCl_Rets + 1)*nvi)
 }
 
+#' PVI_helper
+#' 
+#' calc_PVI helper method, should not be called directly.
+#'
+#' @param volume_diff 
+#' @param adjCl_Rets 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 PVI_helper<-function(volume_diff, adjCl_Rets){
   ifelse(volume_diff>0, pvi<<-pvi, pvi<<-(adjCl_Rets + 1)*pvi)
 }
