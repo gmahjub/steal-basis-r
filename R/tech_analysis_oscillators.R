@@ -115,13 +115,13 @@ calc_momentum_oscillator<-function(ticker, px_type = "A", time_lag=5){
     px_series <- Cl(xts_obj)
   }
   mom_rat<-px_series/lag.xts(px_series, k = time_lag)
-  colnames(mom_rat)<-c(paste(ticker, time_lag, "PerLagMomOsc", sep = "." ))
+  colnames(mom_rat)<-c(paste(ticker, time_lag, "Per.Lag.MomOsc", sep = "." ))
   adj_px_series<-Ad(xts_obj)
   mom_rat<-merge(mom_rat, adj_px_series)
   return(mom_rat)
 }
 
-calc_mom_accel_oscillator<-function(ticker, px_type = "A", time_lag = 5){
+calc_mom_accel_oscillator<-function(ticker, px_type = "A", time_lag = 5, N = 1){
   xts_obj<-get(ticker)
   px_series<-Ad(xts_obj)
   if (px_type == "O"){
@@ -133,5 +133,7 @@ calc_mom_accel_oscillator<-function(ticker, px_type = "A", time_lag = 5){
   } else if (px_type == "C"){
     px_series <- Cl(xts_obj)
   }
-  
+  mom_rat<-calc_momentum_oscillator(ticker, px_type = px_type, time_lag = time_lag)
+  acceleration_MOM_ind<-ROC(mom_rat[,1])*100.0
+  return(acceleration_MOM_ind)
 }
