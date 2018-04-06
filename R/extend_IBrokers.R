@@ -83,20 +83,24 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
   # the Volume column can NEVER be less than the count column.
   wap_header<-paste(ticker, "WAP", sep = ".")
   wap_px_series<-historicalData[, wap_header]
-  op_wap_diff_series<-(op_px_series-wap_px_series)/op_px_series*100.0
-  hi_wap_diff_series<-(hi_px_series-wap_px_series)/hi_px_series*100.0
-  lo_wap_diff_series<-(lo_px_series-wap_px_series)/lo_px_series*100.0
-  cl_wap_diff_series<-(cl_px_series-wap_px_series)/cl_px_series*100.0
-  ind_series<-(wap_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
+  op_wap_diff_series<-(op_px_series-wap_px_series)/wap_px_series*100.0
+  # if most of the trading was done near the high price, and the close price of this bar is lower than the WAP price,
+  # then we can say that the stock was being sold at the WAP price.
+  hi_wap_diff_series<-(hi_px_series-wap_px_series)/wap_px_series*100.0
+  # if most of the trading was done near the low price, and the close price of this bar is higher than the WAP price,
+  # then we can say that people were buying the stock 
+  lo_wap_diff_series<-(lo_px_series-wap_px_series)/wap_px_series*100.0
+  cl_wap_diff_series<-(cl_px_series-wap_px_series)/wap_px_series*100.0
+  wap_ind_series<-(wap_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
   return_xts<-merge(op_wap_diff_series, hi_wap_diff_series)
   return_xts<-merge(return_xts, lo_wap_diff_series)
   return_xts<-merge(return_xts, cl_wap_diff_series)
   return_xts<-merge(return_xts, cl_px_series)
   return_xts<-merge(return_xts, cl_rets_series)
   return_xts<-merge(return_xts, cl_rets_lagged_series)
-  return_xts<-merge(return_xts, ind_series)
-  colnames(return_xts)<-c(paste(ticker, "op_wap_diff", sep = "."), paste(ticker, "hi_wap_diff", sep = "."), paste(ticker, "lo_wap_diff", sep = "."), 
-                          paste(ticker, "cl_wap_diff", sep = "."), names(cl_px_series), paste(ticker, "ClCl.Rets", sep = "."), 
+  return_xts<-merge(return_xts, wap_ind_series)
+  colnames(return_xts)<-c(paste(ticker, "op_wap_ret", sep = "."), paste(ticker, "hi_wap_ret", sep = "."), paste(ticker, "lo_wap_ret", sep = "."), 
+                          paste(ticker, "cl_wap_ret", sep = "."), names(cl_px_series), paste(ticker, "ClCl.Rets", sep = "."), 
                           paste(ticker, "ClCl.Rets.1Lag", sep = "."), paste(ticker, "WAPIndicator", sep = "."))
   return(return_xts)
 }
