@@ -11,6 +11,55 @@ connect2TWS<-function(port_number = 7496){
   return(tws)
 }
 
+#' isTWSConnected
+#'
+#' @param twsConnection 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+isTwsConnected<-function(twsConnection){
+  return (isConnected(twsConnection))
+}
+
+#' twsConnectionCreateTime
+#'
+#' @param twsConnection 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+twsConnectionCreateTime<-function(twsConnection){
+  timeOfConnection<-twsConnectionTime(twsConnection)
+  return (timeOfConnection)  
+}
+
+#' disconnectTWSConn
+#'
+#' @param twsConnection 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+disconnectTWSConn<-function(twsConnection){
+  twsDisconnect(twsConnection)
+}
+
+#' getAccountUpdates
+#'
+#' @param twsConnection 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getAccountUpdate<-function(twsConnection){
+  reqAccountUpdates(twsConnection)
+}
+
 #' getLiveMarketData
 #'
 #' @param twsConnection 
@@ -75,33 +124,56 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
   op_px_series<-Op(historicalData)
   hi_px_series<-Hi(historicalData)
   lo_px_series<-Lo(historicalData)
+  mid_px_series<-(hi_px_series - lo_px_series)/2.0
   cl_px_series<-Cl(historicalData)
   cl_rets_series<-ROC(cl_px_series)*100.0
-  cl_rets_lagged_series<-lag(cl_rets_series, k=-1)
+  cl_rets_lagged_series<-lag.xts(cl_rets_series, k=-1)
   # WAP is a weighted average price of all the trade prices (or whatever type selected), weighted by volume
   # there is also a bar.count column, that column is the number of trades in the bar.
   # the Volume column can NEVER be less than the count column.
   wap_header<-paste(ticker, "WAP", sep = ".")
   wap_px_series<-historicalData[, wap_header]
-  op_wap_diff_series<-(op_px_series-wap_px_series)/wap_px_series*100.0
+  # cost basis price = Open
+  wap_op_ret_series<-(wap_px_series-op_px_series)/op_px_series*100.0
+  mid_op_ret_series<-(mid_px_series-op_px_series)/op_px_series*100.0
+  hi_op_ret_series<-(hi_px_series-op_px_series)/op_px_series*100.0
+  lo_op_ret_series<-(lo_px_series-op_px_series)/op_px_series*100.0
+  cl_op_ret_series<-(cl_px_series-op_px_series)/op_px_series*100.0
   # if most of the trading was done near the high price, and the close price of this bar is lower than the WAP price,
   # then we can say that the stock was being sold at the WAP price.
-  hi_wap_diff_series<-(hi_px_series-wap_px_series)/wap_px_series*100.0
+  hi_wap_ret_series<-(hi_px_series-wap_px_series)/wap_px_series*100.0
   # if most of the trading was done near the low price, and the close price of this bar is higher than the WAP price,
-  # then we can say that people were buying the stock 
-  lo_wap_diff_series<-(lo_px_series-wap_px_series)/wap_px_series*100.0
-  cl_wap_diff_series<-(cl_px_series-wap_px_series)/wap_px_series*100.0
-  wap_ind_series<-(wap_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
-  return_xts<-merge(op_wap_diff_series, hi_wap_diff_series)
-  return_xts<-merge(return_xts, lo_wap_diff_series)
-  return_xts<-merge(return_xts, cl_wap_diff_series)
+  # then we can say that people were buying the stock
+  lo_wap_ret_series<-(lo_px_series-wap_px_series)/wap_px_series*100.0
+  # terminal price = close
+  cl_wap_ret_series<-(cl_px_series-wap_px_series)/wap_px_series*100.0
+  cl_mid_ret_series<-(cl_px_series-mid_px_series)/mid_px_series*100.0
+  cl_hi_ret_series<-(cl_px_series-hi_px_series)/hi_px_series*100.0
+  cl_lo_ret_series<-(cl_px_series-lo_px_series)/lo_px_series*100.0
+  # Indicators
+  wap_hiLo_Relative_series<-(wap_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
+  
+  # build the return xts
+  return_xts<-merge(wap_op_ret_series, mid_op_ret_series)
+  return_xts<-merge(return_xts, hi_op_ret_series)
+  return_xts<-merge(return_xts, lo_op_ret_series)
+  return_xts<-merge(return_xts, cl_op_ret_series)
+  return_xts<-merge(return_xts, hi_wap_ret_series)
+  return_xts<-merge(return_xts, lo_wap_ret_series)
+  return_xts<-merge(return_xts, cl_wap_ret_series)
+  return_xts<-merge(return_xts, cl_mid_ret_series)
+  return_xts<-merge(return_xts, cl_hi_ret_series)
+  return_xts<-merge(return_xts, cl_lo_ret_series)
   return_xts<-merge(return_xts, cl_px_series)
   return_xts<-merge(return_xts, cl_rets_series)
   return_xts<-merge(return_xts, cl_rets_lagged_series)
-  return_xts<-merge(return_xts, wap_ind_series)
-  colnames(return_xts)<-c(paste(ticker, "op_wap_ret", sep = "."), paste(ticker, "hi_wap_ret", sep = "."), paste(ticker, "lo_wap_ret", sep = "."), 
-                          paste(ticker, "cl_wap_ret", sep = "."), names(cl_px_series), paste(ticker, "ClCl.Rets", sep = "."), 
-                          paste(ticker, "ClCl.Rets.1Lag", sep = "."), paste(ticker, "WAPIndicator", sep = "."))
+  return_xts<-merge(return_xts, wap_hilo_relative_series)
+  colnames(return_xts)<-c(paste(ticker, "op2wap_ret", sep = "."), paste(ticker, "op2mid_ret", sep = "."), paste(ticker, "op2hi_ret", sep = "."), 
+                          paste(ticker, "op2hi_ret", sep = "."), paste(ticker, "op2lo_ret", sep = "."), paste(ticker, "op2cl_ret", sep = "."),
+                          paste(ticker, "wap2hi_ret", sep = "."), paste(ticker, "wap2lo_ret", sep = "."), paste(ticker, "wap2cl_ret", sep = "."),
+                          paste(ticker, "mid2cl_ret", sep = "."), paste(ticker, "hi2cl_ret", sep = "."), paste(ticker, "lo2cl_ret", sep = "."),
+                          names(cl_px_series), paste(ticker, "ClCl.Rets", sep = "."), paste(ticker, "ClCl.Rets.1Lag", sep = "."), 
+                          paste(ticker, "WAPRelative2HiLo", sep = "."))
   return(return_xts)
 }
 
@@ -149,53 +221,4 @@ plot_WAPIndicator<-function(ticker, filteredWAPIndicator_xts){
   par(mfrow=c(1,1))
   plot.xts(to_plot[,1], observation.based = TRUE)
   plot.xts(to_plot[,2:3], observation.based = TRUE)
-}
-
-#' isTWSConnected
-#'
-#' @param twsConnection 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-isTwsConnected<-function(twsConnection){
-  return (isConnected(twsConnection))
-}
-
-#' twsConnectionCreateTime
-#'
-#' @param twsConnection 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-twsConnectionCreateTime<-function(twsConnection){
-  timeOfConnection<-twsConnectionTime(twsConnection)
-  return (timeOfConnection)  
-}
-
-#' disconnectTWSConn
-#'
-#' @param twsConnection 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-disconnectTWSConn<-function(twsConnection){
-  twsDisconnect(twsConnection)
-}
-
-#' getAccountUpdates
-#'
-#' @param twsConnection 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-getAccountUpdate<-function(twsConnection){
-  reqAccountUpdates(twsConnection)
 }
