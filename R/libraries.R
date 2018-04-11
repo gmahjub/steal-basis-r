@@ -11,6 +11,7 @@ install.packages("purrr")
 install.packages("purrrlyr")
 install.packages("rlang")
 install.packages("pracma")
+install.packages("IBrokers")
 
 library(tidyquant)
 library(tidyverse)
@@ -25,6 +26,7 @@ library(purrr)
 library(purrrlyr)
 library(rlang)
 library(pracma)
+library(IBrokers)
 
 if (Sys.info()['sysname'] == "Darwin"){
   source('/Users/ghazymahjub/workspace/stealthebasis/Rsrc/RstealBasis/R/write_ticker_csv.R')

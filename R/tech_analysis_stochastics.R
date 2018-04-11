@@ -160,13 +160,41 @@ calc_williams_percentR<-function(ticker, nFastK = 14, nFastD = 3, maType = EMA, 
 #' @export
 #'
 #' @examples
-calc_chaikin_volatility<-function(ticker, window_size=6, maType = EMA, ratio = NULL, wilder = FALSE){
+calc_chaikin_volatility<-function(ticker, window_size=10, maType = EMA, ratio = NULL, wilder = FALSE){
   xts_obj<-get(ticker)
   hlc_px_series<-HLC(xts_obj)
   hl_px_series<-hlc_px_series[,1:2]
   cv_xts<-chaikinVolatility(hl_px_series, n = window_size, maType = maType, ratio = ratio, wilder = wilder)
   return_xts<-merge(cv_xts, Ad(xts_obj))
+  colnames(return_xts)<-c(paste(ticker, "EMA_Chaikin_Vol", sep = "."), names(Ad(xts_obj)))
   return(return_xts)
+}
+
+plotting_chaikin_volatility<-function(ticker, chaikin_vol_xts, chaikin_vol_upper_th = 0.75, chaikin_vol_lower_th = -0.25, plot_which_event = "ALL"){
+  the_ema_ts<-chaikin_vol_xts[, paste(ticker, "EMA_Chaikin_Vol", sep = ".")]
+  adj_px_ts<-chaikin_vol_xts[, paste(ticker, "Adjusted", sep = ".")]
+  true_dates_upper_bound<-the_ema_ts > chaikin_vol_upper_th
+  true_dates_lower_bound <- the_ema_ts < chaikin_vol_lower_th
+  true_dates_upper_bound<-na.omit(true_dates_upper_bound)
+  true_dates_lower_bound<-na.omit(true_dates_lower_bound)
+  upper_bnd_events_xts<-true_dates_upper_bound[true_dates_upper_bound[, paste(ticker, "EMA_Chaikin_Vol", sep = ".")] == TRUE]
+  col_name_upper<-paste(ticker, "Chai.Vol.Event", sep = ".")
+  colnames(upper_bnd_events_xts) <- c(col_name_upper)
+  lower_bnd_events_xts<-true_dates_lower_bound[true_dates_lower_bound[, paste(ticker, "EMA_Chaikin_Vol", sep = ".")] == TRUE]
+  col_name_lower <- c(paste(ticker, "Chai.Vol.Event", sep = "."))
+  colnames(lower_bnd_events_xts) <- c(col_name_lower)
+  upper_bnd_events_xts[,1] <- chaikin_vol_upper_th
+  lower_bnd_events_xts[,1] <- chaikin_vol_lower_th
+  if (plot_which_event == "ALL"){
+    all_events<-rbind(upper_bnd_events_xts, lower_bnd_events_xts)
+  } else if (plot_which_event == "LOWER"){
+    all_events<-lower_bnd_events_xts
+  } else if (plot_which_event == "UPPER"){
+    all_events<-upper_bnd_events_xts
+  }
+  par(mfrow=c(1,1))
+  plot(adj_px_ts, plot.type = "m", at="pretty")
+  addEventLines(all_events, srt = 90, pos = 2, on = 1)
 }
 
 #' calc_volatility
@@ -179,10 +207,10 @@ calc_chaikin_volatility<-function(ticker, window_size=6, maType = EMA, ratio = N
 #' @export
 #'
 #' @examples
-calc_simple_close_to_close_volatility<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 250){
+calc_simple_close_to_close_volatility<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 252){
   xts_obj<-get(ticker)
   if (period_type == 'days'){
-    periods_per_year <- 250
+    periods_per_year <- 252
   } else if (period_type == 'weeks'){
     periods_per_year <- 52
   } else if (period_type == 'months'){
@@ -196,21 +224,146 @@ calc_simple_close_to_close_volatility<-function(ticker, window_size = 10, period
   return(close_to_close_vol)
 }
 
-#' calc_OHLC_volatility
-#' 
-#' Using Garman and Klass estimator
+#' calc_garman_klass_volatility
 #'
-#' @param ticker 
-#' @param window_size 
-#' @param period_type 
-#' @param periods_per_year 
+#' Using Garman and Klass estimator. This estimation of volatility DOES NOT at
+#' all take into account the O/N risk, where there are dramatic price changes
+#' between prior close and the next open. Therefore, we should only use this
+#' volatility estimation for trades that are purely day trades.
+#'
+#' @param ticker
+#' @param window_size
+#' @param period_type
+#' @param periods_per_year
 #'
 #' @return
 #' @export
 #'
 #' @examples
-calc_OHLC_volatility<-function(ticker, window_size= 10, period_type = 'days', periods_per_year = 250){
-  xts_obj<-get(ticker)  
+calc_garman_klass_volatility<-function(ticker, window_size= 10, period_type = 'days', periods_per_year = 252, mean0 = FALSE){
+  xts_obj<-get(ticker)
+  if (period_type == 'days'){
+    periods_per_year <- 252
+  } else if (period_type == 'weeks'){
+    periods_per_year <- 52
+  } else if (period_type == 'months'){
+    periods_per_year<-12
+  } else if (period_type == 'quarters'){
+    periods_per_year<-4
+  } else if (period_type == 'years'){
+    periods_per_year<-1
+  }
+  garman_klass_vol<-volatility(xts_obj, n = window_size, calc = "garman.klass", N = periods_per_year, mean0 = mean0 )
+  return (garman_klass_vol)
+}
+
+#' calc_gapping_garman_klass_volatility
+#'
+#' Garman-Klass Yang-Zhang volatility estimator. Basically the Garman Klass
+#' calculation that allows for opening gaps. This estimation can be used for
+#' multi-period estimation, specifically close at time t-1 to open at time t.
+#'
+#' @param ticker
+#' @param window_size
+#' @param period_type
+#' @param periods_per_year
+#' @param mean0
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_gapping_garman_klass_volatility<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 260, mean0 = FALSE){
+  xts_obj<-get(ticker)
+  if (period_type == 'days'){
+    periods_per_year<-260
+  } else if (period_type == 'weeks'){
+    periods_per_year<-52
+  } else if (period_type == 'months'){
+    periods_per_year<-12
+  } else if (period_type == 'quarters'){
+    periods_per_year<-4
+  } else if (period_type == 'years'){
+    periods_per_year <- 1
+  }
+  g_garman_klass_vol<-volatility(xts_obj, n = window_size, calc = "gk.yz", N = periods_per_year, mean0 = mean0)
+  return (g_garman_klass_vol)
+}
+
+calc_yang_zhang_volatility<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 252, mean0 = FALSE){
+  xts_obj<-get(ticker)
+  if (period_type == 'days'){
+    periods_per_year<-252
+  } else if ()
+}
+
+#' calc_HL_volatility
+#'
+#' Uisng parkinson volatility estimator. This estimation of vol is based on
+#' period High and Low prices. This estiamtion is basically exaclty the same as
+#' close to close historical volatility, except instead of close to close, we
+#' are taking daily High annd Low returns to calculate the volatility.
+#'
+#' @param ticker
+#' @param window_size
+#' @param period_type
+#' @param periods_per_year
+#' @param mean0
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_HL_volatility<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 252, mean0 = FALSE){
+  xts_obj<-get(ticker)
+  if (period_type == 'days'){
+    periods_per_year<-252
+  } else if (period_type == 'weeks'){
+    periods_per_year <- 52
+  } else if (period_type == 'months'){
+    periods_per_year <-12
+  } else if (period_type == 'quarters'){
+    periods_per_year <- 4
+  } else if (period_type == 'years'){
+    periods_per_year<-1
+  }
+  parkinson_vol<-volatility(xts_obj, n = window_size, calc = 'parkinson', N = periods_per_year, mean0 = mean0)
+  return (parkinson_vol)
+}
+
+#' calc_rogers_satchell_vol_estimation
+#'
+#' Use this volatility estimator for intra-day brownian motion. This estimator
+#' includes accountability for trending price, meaning the underlying has some
+#' sort of price drift. It DOES NOT account for O/N gaps, it only takes into
+#' considering OHLC prices per period. When we say underlying drift, we mean the
+#' data has a non-zero mean return is non- zero.
+#'
+#' @param ticker
+#' @param window_size
+#' @param period_type
+#' @param periods_per_year
+#' @param mean0
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_rogers_satchell_vol_estimation<-function(ticker, window_size = 10, period_type = 'days', periods_per_year = 252, mean0 = FALSE){
+  xts_obj<-get(ticker)
+  if (period_type == 'days'){
+    periods_per_year<-252
+  } else if (period_type == 'weeks'){
+    periods_per_year <- 52
+  } else if (period_type == 'months'){
+    periods_per_year <- 12
+  } else if (period_type == 'quarters'){
+    periods_per_year <- 4
+  } else if (period_type == 'years'){
+    periods_per_year <- 1
+  }
+  rogers_satchell_vol<-volatility(xts_obj,4 n = window_size,  calc = 'rogers.satchell', N = periods_per_year, mean0 = mean0)
+  return (rogers_satchell_vol)
 }
 
 #' calc_stoch_of_RSI
