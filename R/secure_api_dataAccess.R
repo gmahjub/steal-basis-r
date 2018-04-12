@@ -62,13 +62,24 @@ get_intraday_data_alphavantager<-function(ticker, interval="1min", outputsize = 
   message(paste("error_cnt b4 tryCatch block entry:", error_cnt, sep = " "))
   tibble_obj<-tryCatch(
     av_get(symbol=ticker, av_fun="TIME_SERIES_INTRADAY", interval=interval, outputsize=outputsize),
-    error = function(e) { error_cnt<-error_cnt+1; message(paste("there was an error, the error count is...", error_cnt, sep=" "));
-    Sys.sleep(5); if_else(error_cnt > 3, return(NA), get_intraday_data_alphavantager(ticker, interval = "1min",outputsize = "full",
-                                                                                      error_cnt = error_cnt))})
+    error = function(e) { message("there was an error, writing ticker to error log..."); write_error_log(ticker); Sys.sleep(5)})
   return(tibble_obj)
   # use message() function instead of the print() function across the board
   # use stop() to stop exection if the error was a fatal one
   # use warning() to if error is not fatal, do not want to sop execution.
+}
+
+write_error_log<-function(ticker, error_file_dir = "/Users/ghazymahjub/workspace/data/alphavantage/logs"){
+  error_log_file<-paste(Sys.Date(), "av_tick_pull_error.log", sep = "")
+  error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
+  log_con <- file(error_log_file, open = "a")
+  error_message<-paste(ticker, ".failed.\n", sep = "")
+  cat(error_message, file = log_con)
+}
+
+get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval="1min", outputsize = "full"){
+  tibble_obj<-av_get(symbol = ticker, av_fun = "TIME_SERIES_INTRADAY", interval = interval, outputsize = outputsize)
+  return(tibble_obj)
 }
 
 #' eod_batch_av_helper
@@ -101,11 +112,15 @@ eod_batch_av_helper<-function(ticker, path_to_ticker_dir){
     local_intraday_tibble<-local_intraday_tibble %>% setNames(., c("BarTimeStamp", "Open", "High", "Low", "Close", "Volume"))
     last_row_of_local<-local_intraday_tibble[nrow(local_intraday_tibble),]
     last_timestamp_local<-last_row_of_local$BarTimeStamp
-    dst_bool<-dst(as.character(last_timestamp_local))
-    if (dst_bool){last_timestamp_local<-as.POSIXct(last_timestamp_local, tz = "EDT");
-    local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "EDT")
-    } else { last_timestamp_local<-as.POSIXct(last_timestamp_local, tz = "EST");
-    local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "EST") }
+    #dst_bool<-dst(as.character(last_timestamp_local))
+    #if (dst_bool){last_timestamp_local<-as.POSIXct(last_timestamp_local, tz = "EDT");
+    #local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "EDT")
+    #} else { last_timestamp_local<-as.POSIXct(last_timestamp_local, tz = "EST");
+    #local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "EST") }
+    
+    last_timestamp_local<-as.POSIXct(last_timestamp_local, tz = "America/New_York")
+    local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
+    
     save_original_tz<-as.POSIXct(last_timestamp_local)
     attr(last_timestamp_local, "tzone")<-"UTC"
     remote_intraday_tibble<-FALSE
@@ -115,8 +130,9 @@ eod_batch_av_helper<-function(ticker, path_to_ticker_dir){
       remote<-TRUE
       if (!is.na(remote_intraday_tibble)){
         remote_intraday_tibble<-remote_intraday_tibble %>% setNames(c("BarTimeStamp", "Open", "High", "Low", "Close", "Volume"))
-        if (dst_bool) { remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "EDT")
-        } else { remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "EST") }
+        #if (dst_bool) { remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "EDT")
+        #} else { remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "EST") }
+        remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
         new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
         intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
         do.call("<-", list(paste(ticker, "intra", sep='.'), intraday_tibble_obj))
@@ -131,8 +147,9 @@ eod_batch_av_helper<-function(ticker, path_to_ticker_dir){
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
     remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, interval = "1min", outputsize = "full")
+    #remote_intraday_tibble <- get_intraday_data_alphavantager_no_exception_handling(ticker, interval = "1min", outputsize = "full")
     do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
-    custom_headers<-c("", "BarTimeStamp", "Open", "High", "Low", "Close", "Volume")
+    custom_headers<-c("BarTimeStamp", "Open", "High", "Low", "Close", "Volume")
     write_intraday_av(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir, column_names = custom_headers)
   }
   # lets do some clean up if possible
