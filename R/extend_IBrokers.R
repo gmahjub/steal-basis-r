@@ -196,6 +196,15 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
   return(return_xts)
 }
 
+#' hilo_price_autocorr
+#'
+#' @param ticker 
+#' @param historicalData 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 hilo_price_autocorr<-function(ticker, historicalData){
   hi_price_lagged<-lag(Hi(historicalData), k =-1)
   lo_price_lagged<-lag(Lo(historicalData), k = -1)
