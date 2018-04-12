@@ -75,6 +75,8 @@ write_error_log<-function(ticker, error_file_dir = "/Users/ghazymahjub/workspace
   log_con <- file(error_log_file, open = "a")
   error_message<-paste(ticker, ".failed.\n", sep = "")
   cat(error_message, file = log_con)
+  flush(log_con)
+  close(log_con)
 }
 
 get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval="1min", outputsize = "full"){
