@@ -48,6 +48,22 @@ disconnectTWSConn<-function(twsConnection){
   twsDisconnect(twsConnection)
 }
 
+#' resetTWSConnection
+#'
+#' @param twsConnection 
+#'
+#' @return a tws connection object
+#' @export
+#'
+#' @examples
+resetTWSConnection<-function(twsConnection){
+  if (isTwsConnected(twsConnection)){
+    disconnectTWSConn(twsConnection)
+  }
+  tws_conn_obj<-connect2TWS()
+  return (tws_conn_obj)
+}
+
 #' getAccountUpdates
 #'
 #' @param twsConnection 
@@ -124,7 +140,7 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
   op_px_series<-Op(historicalData)
   hi_px_series<-Hi(historicalData)
   lo_px_series<-Lo(historicalData)
-  mid_px_series<-(hi_px_series - lo_px_series)/2.0
+  mid_px_series<-(hi_px_series + lo_px_series)/2.0
   cl_px_series<-Cl(historicalData)
   cl_rets_series<-ROC(cl_px_series)*100.0
   cl_rets_lagged_series<-lag.xts(cl_rets_series, k=-1)
@@ -151,8 +167,9 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
   cl_hi_ret_series<-(cl_px_series-hi_px_series)/hi_px_series*100.0
   cl_lo_ret_series<-(cl_px_series-lo_px_series)/lo_px_series*100.0
   # Indicators
-  wap_hiLo_Relative_series<-(wap_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
-  
+  wap_hilo_relative_series<-(wap_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
+  cl_hilo_relative_series<-(cl_px_series - lo_px_series)/(hi_px_series - lo_px_series)*100.0
+  cl2wap_hilo_relaive_series<-(cl_px_series-wap_px_series)/(hi_px_series - lo_px_series)*100.0
   # build the return xts
   return_xts<-merge(wap_op_ret_series, mid_op_ret_series)
   return_xts<-merge(return_xts, hi_op_ret_series)
@@ -168,16 +185,32 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
   return_xts<-merge(return_xts, cl_rets_series)
   return_xts<-merge(return_xts, cl_rets_lagged_series)
   return_xts<-merge(return_xts, wap_hilo_relative_series)
+  return_xts<-merge(return_xts, cl_hilo_relative_series)
+  return_xts<-merge(return_xts, cl2wap_hilo_relaive_series)
   colnames(return_xts)<-c(paste(ticker, "op2wap_ret", sep = "."), paste(ticker, "op2mid_ret", sep = "."), paste(ticker, "op2hi_ret", sep = "."), 
-                          paste(ticker, "op2hi_ret", sep = "."), paste(ticker, "op2lo_ret", sep = "."), paste(ticker, "op2cl_ret", sep = "."),
-                          paste(ticker, "wap2hi_ret", sep = "."), paste(ticker, "wap2lo_ret", sep = "."), paste(ticker, "wap2cl_ret", sep = "."),
-                          paste(ticker, "mid2cl_ret", sep = "."), paste(ticker, "hi2cl_ret", sep = "."), paste(ticker, "lo2cl_ret", sep = "."),
-                          names(cl_px_series), paste(ticker, "ClCl.Rets", sep = "."), paste(ticker, "ClCl.Rets.1Lag", sep = "."), 
-                          paste(ticker, "WAPRelative2HiLo", sep = "."))
+                          paste(ticker, "op2lo_ret", sep = "."), paste(ticker, "op2cl_ret", sep = "."), paste(ticker, "wap2hi_ret", sep = "."), 
+                          paste(ticker, "wap2lo_ret", sep = "."), paste(ticker, "wap2cl_ret", sep = "."), paste(ticker, "mid2cl_ret", sep = "."), 
+                          paste(ticker, "hi2cl_ret", sep = "."), paste(ticker, "lo2cl_ret", sep = "."), names(cl_px_series), 
+                          paste(ticker, "ClCl.Rets", sep = "."), paste(ticker, "ClCl.Rets.1Lag", sep = "."), paste(ticker, "WAPRelative2HiLo", sep = "."),
+                          paste(ticker, "ClRelative2HiLo", sep = "."), paste(ticker, "Cl2WapRelative2HiLo", sep = "."))
   return(return_xts)
 }
 
-#' filterWAPIndicatorValues
+hilo_price_autocorr<-function(ticker, historicalData){
+  hi_price_lagged<-lag(Hi(historicalData), k =-1)
+  lo_price_lagged<-lag(Lo(historicalData), k = -1)
+  test_1<-and(Hi(historicalData) >= lo_price_lagged, Hi(historicalData) < hi_price_lagged) == 1
+  test_2<-Hi(historicalData)<lo_price_lagged
+  test_neg1<-and(Lo(historicalData) <= hi_price_lagged, Lo(historicalData) > lo_price_lagged) == 1
+  test_neg2<-Lo(historicalData) > hi_price_lagged
+  hilo_price_autocorr_ind<-ifelse(test_1, 1, ifelse(test_2, 2, ifelse(test_neg1, -1, ifelse(test_neg2, -2, 0))))
+  colnames(hilo_price_autocorr_ind)<-c(paste(ticker, "HiLoACind", sep = "."))
+  return (hilo_price_autocorr_ind)
+}
+
+
+
+#' filter_WAPrelative2HiLo
 #' 
 #' Part of WAP workflow. Input into this function is result of a call to calcBarOhlcMinusBarWap() function.
 #' This function will filter out WAPIndicator values, based on the input parameters "high_th" and "low_th".
@@ -194,13 +227,34 @@ calcBarOhlcMinusBarWap<-function(ticker, historicalData){
 #' @export
 #'
 #' @examples
-filterWAPIndicatorValues<-function(ticker, barOhlcMinusBarWap_xts, high_th = 60.0, low_th = 40.0){
-  wap_ind_col_name<-paste(ticker, "WAPIndicator", sep = ".")
+filter_WAPrelative2HiLo<-function(ticker, barOhlcMinusBarWap_xts, high_th = 60.0, low_th = 40.0){
+  wap_ind_col_name<-paste(ticker, "WAPRelative2HiLo", sep = ".")
+  clcl_ret_1lag_colname<-paste(ticker, "ClCl.Rets.1Lag", sep = ".")
   wap_ind_series<-barOhlcMinusBarWap_xts[, wap_ind_col_name]
+  clcl_ret_1lag_series<-barOhlcMinusBarWap_xts[, clcl_ret_1lag_colname]
   trade_sig<-ifelse(wap_ind_series>high_th,-1,ifelse(wap_ind_series<low_th, 1, 0))
+  trade_ret<-ifelse(trade_sig == 1, barOhlcMinusBarWap_xts[, clcl_ret_1lag_colname], 
+                    ifelse(trade_sig == -1, barOhlcMinusBarWap_xts[,clcl_ret_1lag_colname]*-1.0, 0.0))
   colnames(trade_sig)<-paste(ticker, "WAP.Trade.Sig", sep = ".")
+  colnames(trade_ret)<-paste(ticker, "WAP.Trade.Ret", sep = ".")
   return_xts<-merge(barOhlcMinusBarWap_xts, trade_sig)
+  return_xts<-merge(return_xts, trade_ret)
   return(return_xts)
+}
+
+filter_cl2wap_ret<-function(ticker, barOhlcMinusBarWap_xts, cl2wap_hilo_relative_th){
+  wap_ind_col_name<-paste(ticker, "Cl2WapRelative2HiLo", sep = ".")
+  clcl_ret_1lag_colname<-paste(ticker, "ClCl.Rets.1Lag", sep = ".")
+  wap_ind_series<-barOhlcMinusBarWap_xts[, wap_ind_col_name]
+  clcl_ret_1lag_series<-barOhlcMinusBarWap_xts[, clcl_ret_1lag_colname]
+  filtered_wap2cl_hilo_relative<-ifelse(abs(wap_ind_col_name)>wap2cl_hilo_relative_th, 1, 0)
+  colnames(filtered_wap2cl_hilo_relative)<-paste(ticker, "Cl2WapRelative2HiLoExceeds", cl2wap_hilo_relative_th, sep = ".")
+  return_xts<-merge(barOhlcMinusBarWap_xts, filtered_wap2cl_hilo_relative)
+  return(return_xts)
+}
+
+plot_xts_reset<-function(num_rows){
+  par(mfrow=c(num_rows,1))
 }
 
 #' plot_WAPIndicator
