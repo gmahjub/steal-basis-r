@@ -58,27 +58,46 @@ set_quandl_api_key<-function(api_key_file){
 #' @export
 #'
 #' @examples
-get_intraday_data_alphavantager<-function(ticker, interval="1min", outputsize = "full", error_cnt = 0){
-  message(paste("error_cnt b4 tryCatch block entry:", error_cnt, sep = " "))
+get_intraday_data_alphavantager<-function(ticker, error_log, interval="1min", outputsize = "full"){
   tibble_obj<-tryCatch(
     av_get(symbol=ticker, av_fun="TIME_SERIES_INTRADAY", interval=interval, outputsize=outputsize),
-    error = function(e) { message("there was an error, writing ticker to error log..."); write_error_log(ticker); Sys.sleep(5)})
+    error = function(e) { message("there was an error, writing ticker to error log..."); write_error_log(ticker, error_log); Sys.sleep(5)})
   return(tibble_obj)
   # use message() function instead of the print() function across the board
   # use stop() to stop exection if the error was a fatal one
   # use warning() to if error is not fatal, do not want to sop execution.
 }
 
-write_error_log<-function(ticker, error_file_dir = "/Users/ghazymahjub/workspace/data/alphavantage/logs"){
-  error_log_file<-paste(Sys.Date(), "av_tick_pull_error.log", sep = "")
-  error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
-  log_con <- file(error_log_file, open = "a")
+#' write_error_log
+#'
+#' @param ticker 
+#' @param error_file_dir 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+write_error_log<-function(ticker, error_log){
+  log_con <- file(error_log, open = "a")
   error_message<-paste(ticker, ".failed.\n", sep = "")
   cat(error_message, file = log_con)
   flush(log_con)
   close(log_con)
 }
 
+#' get_intraday_data_alphavantager_no_exception_handling
+#' 
+#' Delete this function, we should never refuse to use exception handling.
+#' Using this funciton only for test, never prod.
+#'
+#' @param ticker 
+#' @param interval 
+#' @param outputsize 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval="1min", outputsize = "full"){
   tibble_obj<-av_get(symbol = ticker, av_fun = "TIME_SERIES_INTRADAY", interval = interval, outputsize = outputsize)
   return(tibble_obj)
@@ -99,7 +118,7 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
 #' @export
 #'
 #' @examples
-eod_batch_av_helper<-function(ticker, path_to_ticker_dir){
+eod_batch_av_helper<-function(ticker, path_to_ticker_dir, error_log){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
   file_path <- paste(path_to_ticker_dir, ticker, ".csv", sep="")
@@ -128,7 +147,7 @@ eod_batch_av_helper<-function(ticker, path_to_ticker_dir){
     remote_intraday_tibble<-FALSE
     if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < 0) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
-      remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, interval = "1min", outputsize = "full")
+      remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, error_log, interval = "1min", outputsize = "full")
       remote<-TRUE
       if (!is.na(remote_intraday_tibble)){
         remote_intraday_tibble<-remote_intraday_tibble %>% setNames(c("BarTimeStamp", "Open", "High", "Low", "Close", "Volume"))
@@ -148,7 +167,7 @@ eod_batch_av_helper<-function(ticker, path_to_ticker_dir){
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, interval = "1min", outputsize = "full")
+    remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, error_log, interval = "1min", outputsize = "full")
     #remote_intraday_tibble <- get_intraday_data_alphavantager_no_exception_handling(ticker, interval = "1min", outputsize = "full")
     do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
     custom_headers<-c("BarTimeStamp", "Open", "High", "Low", "Close", "Volume")
@@ -263,37 +282,52 @@ when_was_mkt_open_last<-function(){
   return (last_datetime_ymd_hms)
 }
 
-#' does a batch download at EOD for the days intraday timeseries. Checks to see
-#' if we have a file for the ticker already on disk. See helper method for more
-#' detail. If list of tickes is NA, then it gets set to the stocks 1000 space,
-#' IWB holdings. List of tickers should be a vector of tickers, and get be
-#' passed in by a call to tq_index or a call to getting a list of tickes from a
-#' csv file.
+#' eod_batch_av_intraday
+#' 
+#' Contains error logging and less hardcoding now. Much better. Pulls ticks
+#' from alphavanatge source. Defaults to pull symbols from a flat file.
 #'
-#' Currently, I am using this to do EOD batch runs at night of intraday
-#' timeseries for all ETF's in my list and all IWB holdings.
+#' @param path_to_ticker_dir 
+#' @param path_to_api_key_file 
+#' @param list_of_tickers 
 #'
-#' HARDCODES params!!!
-#'
-#' @param list_of_tickers
-#'
-#' @return nothing
+#' @return
 #' @export
 #'
 #' @examples
 eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list_of_tickers=NA){
   set_alphavantage_api_key(path_to_api_key_file)
+  error_log_file<-paste(Sys.Date(), "av_tick_pull_error.log", sep = "")
   if (is.na(list_of_tickers)){
-    IWB_holdings_file<-"/Users/ghazymahjub/workspace/data/IWB_holdings.csv"
-    ETFS_VOL_OVER_1M_file<-"/Users/ghazymahjub/workspace/data/ETFS_VOL_OVER_1M.csv"
-    IWB_holdings_tibble<-get_holdings_from_file_in_tibble_fmt(IWB_holdings_file)
-    etfs_tibble<-as.tibble(read.csv(ETFS_VOL_OVER_1M_file, sep = ',', header=TRUE, nrows=-1))
-    filtered_holdings_tibble<-get_holdings_filtered(IWB_holdings_tibble, "Asset.Class", "==", "Equity")
-    list_of_tickers<-filtered_holdings_tibble$Ticker
-    list_of_etf_tickers<-etfs_tibble$SYMBOL
-    list_of_tickers<-c(as.character(list_of_etf_tickers), as.character(list_of_tickers))
+    if (Sys.info()['sysname'] == "Darwin"){
+      # the file containing the files with the tickers to pull
+      theFileOfFiles<-paste(getwd(), "../../../data/alphavantageTickPullFiles.csv", sep = "/")
+      ## get below files from iShares website
+      holdings_file_dir<-paste(getwd(), "../../../data/", sep = "/")
+      error_file_dir<-paste(getwd(), "../../../data/alphavantage/logs", sep = "/")
+      error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
+    } else {
+      theFileOfFiles<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantageTickPullFiles.csv", sep = "\\")
+      holdings_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\", sep = "\\")
+      error_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\logs", sep = "\\")
+      error_log_file<-paste(error_file_dir, error_log_file, sep = "\\")
+    }
+    fileOfFiles<-read.csv(file = theFileOfFiles, header = TRUE, sep = ",")
+    fileList<-as.vector(fileOfFiles$SymbolsFileName)
+    append_dir<-function(f) paste(holdings_file_dir, f, sep = "")
+    list_ticker_file_paths<-sapply(fileList, FUN = append_dir)
+    list_of_tibbles<-sapply(list_ticker_file_paths, FUN = get_holdings_from_file_in_tibble_fmt)
+    list_of_filtered_tibbles<-sapply(list_of_tibbles, FUN = get_holdings_filtered, filter_column_name = "Asset.Class", 
+                                     filter_operator = "==", filter_value = "Equity")
+    list_of_ticker_vectors<-sapply(list_of_filtered_tibbles, FUN = getTickersAsVector)
+    list_of_tickers<-as.character(unlist(list_of_ticker_vectors))
   }
-  sapply(list_of_tickers, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir)
+  sapply(list_of_tickers, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
+}
+
+getTickersAsVector<-function(tibble_obj){
+  tickers<-tryCatch( as.character(tibble_obj$Symbol), warning = function(w) { as.character(tibble_obj$Ticker) })
+  return (tickers)
 }
 
 #' eod_batch_av_intraday_error_helper
@@ -309,8 +343,8 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
 #' @export
 #'
 #' @examples
-eod_batch_av_intraday_error_helper<-function(ticker, path_to_ticker_dir){
-  return (tryCatch(eod_batch_av_helper(ticker, path_to_ticker_dir),
+eod_batch_av_intraday_error_helper<-function(ticker, path_to_ticker_dir, error_log){
+  return (tryCatch(eod_batch_av_helper(ticker, path_to_ticker_dir, error_log),
                    error=function(e) message(paste(ticker, e, sep = ":"))))
 }
 

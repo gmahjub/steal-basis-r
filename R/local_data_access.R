@@ -58,6 +58,11 @@ get_holdings_from_file_in_tibble_fmt<-function(file_path, sep=",", n_rows = -1){
 #'
 #' @examples
 get_holdings_filtered<-function(holdings_tibble_obj, filter_column_name, filter_operator, filter_value){
+  col_exists<-which(names(holdings_tibble_obj) == filter_column_name) < 1
+  if (length(col_exists) < 1){
+    message(paste("column ", filter_column_name, " does not exist in the input tibble object!", sep = "")) 
+    return (holdings_tibble_obj)
+  }
   assign(eval(filter_column_name), filter_column_name)
   str_filter_cond<-paste(get(filter_column_name), filter_operator, "filter_value", sep=" ")
   returned_tibble <- holdings_tibble_obj %>% group_by(get(filter_column_name)) %>% filter_(str_filter_cond)
