@@ -103,22 +103,31 @@ getLiveMarketData<-function(twsConnection, ticker){
 #' @param twsConnection tws connection object, a result of a call to connect2TWS
 #' @param ticker ticker as string
 #' @param barSize see above for valid barSize arguement
+#' @param whatToShow 
+#' @param write_out TRUE/FALSE
+#' @param path_to_ticker_dir 
 #' @param duration see above for valid duration argument
-#' @param price_type valid options: TRADES, MIDPOINT, BID, ASK, BID_ASK,
-#'   ADJUSTED_LAST, HISTORICAL_VOLATILITY, OPTION_IMPLIED_VOLATILITY,
-#'   REBATE_RATE, FEE_RATE, YIELD_BID, YIELD_ASK, YIELD_BID_ASK, YIELD_LAST
 #'
 #' @return an xts object contianing the timeseries historical data.
 #' @export
 #'
 #' @examples
-getHistoricalData<-function(twsConnection, ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES"){
-  contract_obj<-twsSTK(ticker)
-  ticker_hist_data<-reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
-                                      duration = duration)
+getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", write_out = FALSE, path_to_ticker_dir = NA, 
+                            error_log_file = NA){
+  message(paste("pulling ticker ", ticker, sep = ""))
+  twsConnection<-connect2TWS()
+  contract_obj<-twsSTK(ticker, primary = "NASDAQ")
+  ticker_hist_data<-tryCatch(reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
+                                      duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file); Sys.sleep(12)})
   # when whatToShow is "TRADES", we have extra information to use. The volume traded in each bar, the WAP, which is the volume
   # weighted price of each bar, and the number of trades that occurred in that bar (ticker.<count>)
-  return(ticker_hist_data)
+  disconnectTWSConn(twsConnection)
+  if (write_out) {
+    ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
+    tryCatch(write.zoo(as.xts(ticker_hist_data), ticker_csv_file, index.name = "Date", sep=","), error = function(e) { message(paste(ticker, "write to csv failed", sep = " "))})
+  } else {
+    return(ticker_hist_data)
+  }
 }
 
 #' calcBarOhlcMinusBarWap
