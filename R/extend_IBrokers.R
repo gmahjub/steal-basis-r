@@ -116,11 +116,13 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
                             error_log_file = NA){
   message(paste("pulling ticker ", ticker, sep = ""))
   twsConnection<-connect2TWS()
-  contract_obj<-twsSTK(ticker, primary = "NASDAQ")
+  con_details<-reqContractDetails(twsConnection, twsEquity(ticker))
+  primary_exch<-tryCatch(con_details[[1]]$contract$primary, error = function(e) { message(paste(ticker, ": not able to retrieve primary exchange.", sep = ""));
+    write_error_log(paste(ticker, " primary exchange not able to retrieve, message was: ", e, sep = ""))})
+  message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
+  contract_obj<-twsSTK(ticker, primary = primary_exch)
   ticker_hist_data<-tryCatch(reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
                                       duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file); Sys.sleep(12)})
-  # when whatToShow is "TRADES", we have extra information to use. The volume traded in each bar, the WAP, which is the volume
-  # weighted price of each bar, and the number of trades that occurred in that bar (ticker.<count>)
   disconnectTWSConn(twsConnection)
   if (write_out) {
     ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
@@ -225,8 +227,6 @@ hilo_price_autocorr<-function(ticker, historicalData){
   colnames(hilo_price_autocorr_ind)<-c(paste(ticker, "HiLoACind", sep = "."))
   return (hilo_price_autocorr_ind)
 }
-
-
 
 #' filter_WAPrelative2HiLo
 #' 

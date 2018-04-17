@@ -103,6 +103,16 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
   return(tibble_obj)
 }
 
+#' eod_batch_IBKR_helper
+#'
+#' @param ticker 
+#' @param path_to_ticker_dir 
+#' @param error_log 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
@@ -124,9 +134,7 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     remote_intraday_tibble<-FALSE
     if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < 0) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
-      ### CHANGE BELOW METHOD TO IBKR - GM - 4/15/2018 11 PM
       remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log)
-      #remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, error_log, interval = "1min", outputsize = "full")
       remote<-TRUE
       if (!is.na(remote_intraday_tibble)){
         remote_intraday_tibble<-remote_intraday_tibble %>% setNames(c("BarTimeStamp", names(remote_intraday_tibble)))
@@ -144,15 +152,15 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "1 Y", whatToShow = "TRADES", write_out = TRUE, path_to_ticker_dir = path_to_ticker_dir, error_log_file = error_log )
+    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "1 W", whatToShow = "TRADES", error_log_file = error_log )
+    #remote_intraday_tibble<- remote_intraday_tibble %>% setNames(c("BarTimeStamp", names(remote_intraday_tibble)))
     do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
-    custom_headers<-c("BarTimeStamp", names(remote_intraday_tibble))
-    write_intraday_av(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir, column_names = custom_headers)
+    write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
   }
   # lets do some clean up if possible
   rm(remote_intraday_tibble)
   if (remote){
-    Sys.sleep(5)
+    Sys.sleep(11)
     remote<-FALSE
   }
 }
@@ -372,15 +380,9 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
   error_log_file<-paste(Sys.Date(), "AvTickPull_FailStatus.csv", sep = ".")
   if (is.na(list_of_tickers)){
     if (Sys.info()['sysname'] == "Darwin"){
-      # the file containing the files with the tickers to pull
-      #theFileOfFiles<-paste(getwd(), "../../../data/alphavantageTickPullFiles.csv", sep = "/")
-      ## get below files from iShares website
-      #holdings_file_dir<-paste(getwd(), "../../../data/", sep = "/")
       error_file_dir<-paste(getwd(), "../../../data/alphavantage/logs", sep = "/")
       error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
     } else {
-      #theFileOfFiles<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantageTickPullFiles.csv", sep = "\\")
-      #holdings_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\", sep = "\\")
       error_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\logs", sep = "\\")
       error_log_file<-paste(error_file_dir, error_log_file, sep = "\\")
     }
@@ -388,15 +390,6 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
     cat("Symbol,Status\n", file = log_con)
     flush(log_con)
     close(log_con)
-    #fileOfFiles<-read.csv(file = theFileOfFiles, header = TRUE, sep = ",")
-    #fileList<-as.vector(fileOfFiles$SymbolsFileName)
-    #append_dir<-function(f) paste(holdings_file_dir, f, sep = "")
-    #list_ticker_file_paths<-sapply(fileList, FUN = append_dir)
-    #list_of_tibbles<-sapply(list_ticker_file_paths, FUN = get_holdings_from_file_in_tibble_fmt)
-    #list_of_filtered_tibbles<-sapply(list_of_tibbles, FUN = get_holdings_filtered, filter_column_name = "Asset.Class", 
-    #                                 filter_operator = "==", filter_value = "Equity")
-    #list_of_ticker_vectors<-sapply(list_of_filtered_tibbles, FUN = getTickersAsVector)
-    #ist_of_tickers<-as.character(unlist(list_of_ticker_vectors))
     list_of_tickers<-getSymbolsUniverse()
   }
   sapply(list_of_tickers, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
@@ -447,8 +440,7 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, tickers=NULL){
   if (is.null(tickers)){
     tickers<-getSymbolsUniverse()
   }
-  sapply(tickers, FUN = getHistoricalData, barSize = "1 min", duration = "1 W", 
-         whatToShow = "TRADES", write_out = TRUE, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
+  sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
 }
 
 #' getTickersAsVector
