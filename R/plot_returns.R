@@ -1,3 +1,14 @@
+#' plot_log_returns_hist
+#'
+#' @param ticker 
+#' @param price_type_func 
+#' @param num_bins 
+#' @param alpha 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 plot_log_returns_hist<-function(ticker, price_type_func = "Ad", num_bins = 100, alpha = 0.5){
   log_returns <- do.call(price_type_func, list(get(ticker))) %>% dailyReturn(type = "log")
   names(log_returns) <- paste(ticker, ".Log.Returns", sep = "")
