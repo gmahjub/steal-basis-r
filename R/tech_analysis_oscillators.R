@@ -121,6 +121,19 @@ calc_momentum_oscillator<-function(ticker, px_type = "A", time_lag=5){
   return(mom_rat)
 }
 
+#' calc_mom_accel_oscillator
+#' 
+#' Calculate the acceleration of momentum for a ticker.
+#'
+#' @param ticker 
+#' @param px_type 
+#' @param time_lag 
+#' @param N 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 calc_mom_accel_oscillator<-function(ticker, px_type = "A", time_lag = 5, N = 1){
   xts_obj<-get(ticker)
   px_series<-Ad(xts_obj)

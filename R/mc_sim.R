@@ -13,6 +13,20 @@ sd_log_returns<-function(log_returns){
   return (sd_log_returns)
 }
 
+#' simulate
+#' 
+#' Monte Carlo Simulation
+#'
+#' @param ticker 
+#' @param sim_size 
+#' @param mean_log_return 
+#' @param sd_log_return 
+#' @param price_type 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 simulate<-function(ticker, sim_size, mean_log_return, sd_log_return, price_type = "Adjusted"){
   sim_nun<-1:sim_size
   the_data<-get(ticker)

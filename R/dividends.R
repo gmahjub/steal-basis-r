@@ -95,6 +95,14 @@ adjustOHLC_DividendWise_tibble_obj<-function(tibble_obj, dividend_dates_tibble){
   return (full_tibble_obj)
 }
 
+#' get_single_dividend_history
+#'
+#' @param ticker 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 get_single_dividend_history<-function(ticker){
   tq_get(ticker, get = "dividends", from = "2017-01-01")
 }
