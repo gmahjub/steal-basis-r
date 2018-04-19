@@ -203,7 +203,7 @@ eod_batch_av_helper<-function(ticker, path_to_ticker_dir, error_log){
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
       remote_intraday_tibble <- get_intraday_data_alphavantager(ticker, error_log, interval = "1min", outputsize = "full")
       remote<-TRUE
-      if (!is.na(remote_intraday_tibble)){
+      if (!is.null(remote_intraday_tibble)){
         remote_intraday_tibble<-remote_intraday_tibble %>% setNames(c("BarTimeStamp", "Open", "High", "Low", "Close", "Volume"))
         remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
         new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
@@ -396,8 +396,6 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
   # rerun
   failedFile<-read.csv(file = error_log_file, header = TRUE, sep = ",")
   tickerList<-as.character(failedFile$Symbol)
-  flush(log_con)
-  close(log_con)
   rerun_log_file<-paste(error_log_file, "1", sep =".")
   log_con<-file(rerun_log_file, open = "a")
   cat("Symbol,Status\n", file = log_con)
@@ -408,8 +406,6 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
   # final run
   rerunFile<-read.csv(file = rerun_log_file, header = TRUE, sep = ",")
   tickerList<-as.character(rerunFile$Symbol)
-  flush(log_con)
-  close(log_con)
   finalRun_log_file<-paste(error_log_file, "2", sep=".")
   log_con<-file(finalRun_log_file, open = "a")
   cat("Symbol,Status\n", file = log_con)
