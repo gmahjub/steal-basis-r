@@ -121,10 +121,9 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
   if (file.exists(file_path)){
     message(paste("file does exist...", path_to_ticker_dir, sep = ""))
     local_intraday_tibble<-as.tibble(read.csv(file = file_path, header = TRUE, sep=',', nrows=-1,
-                                              colClasses = c("character", "POSIXct", "numeric", "numeric", "numeric", "numeric", "integer",
+                                              colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer",
                                                              "numeric", "integer", "integer")))
-    local_intraday_tibble<-local_intraday_tibble[,2:ncol(local_intraday_tibble)]
-    local_intraday_tibble<-local_intraday_tibble %>% setNames(., c("BarTimeStamp", names(local_intraday_tibble)))
+    local_intraday_tibble<-local_intraday_tibble[,1:ncol(local_intraday_tibble)]
     last_row_of_local<-local_intraday_tibble[nrow(local_intraday_tibble),]
     last_timestamp_local<-last_row_of_local$BarTimeStamp
     last_timestamp_local<-as.POSIXct(last_timestamp_local, tz="America/New_York")
@@ -132,18 +131,18 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     save_original_tz<-as.POSIXct(last_timestamp_local)
     attr(last_timestamp_local, "tzone")<-"UTC"
     remote_intraday_tibble<-FALSE
-    if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < 0) {
+    if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < -1) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
       remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log)
+      remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
       remote<-TRUE
-      if (!is.na(remote_intraday_tibble)){
-        remote_intraday_tibble<-remote_intraday_tibble %>% setNames(c("BarTimeStamp", names(remote_intraday_tibble)))
+      if (!is.null(remote_intraday_tibble)){
         remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
         new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
         intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
         do.call("<-", list(paste(ticker, "intra", sep='.'), intraday_tibble_obj))
         write_intraday_av(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir,
-                          column_names = c("BarTimeStamp", names(remote_intraday_tibble)) )
+                          column_names = c(names(remote_intraday_tibble)) )
       }
     } else {
       message(paste("local file is up to date...", path_to_ticker_dir, sep = ""))
@@ -153,7 +152,6 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
     remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "1 W", whatToShow = "TRADES", error_log_file = error_log )
-    #remote_intraday_tibble<- remote_intraday_tibble %>% setNames(c("BarTimeStamp", names(remote_intraday_tibble)))
     do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
     write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
   }

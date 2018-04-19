@@ -12,6 +12,7 @@ install.packages("purrrlyr")
 install.packages("rlang")
 install.packages("pracma")
 install.packages("IBrokers")
+install.packages("timetk")
 
 library(tidyquant)
 library(tidyverse)
@@ -27,6 +28,7 @@ library(purrrlyr)
 library(rlang)
 library(pracma)
 library(IBrokers)
+library(timetk)
 
 if (Sys.info()['sysname'] == "Darwin"){
   source(paste(getwd(), 'R/write_ticker_csv.R', sep = "/"))

@@ -123,11 +123,13 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
   contract_obj<-twsSTK(ticker, primary = primary_exch)
   ticker_hist_data<-tryCatch(reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
                                       duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file); Sys.sleep(12)})
-  disconnectTWSConn(twsConnection)
+  #disconnectTWSConn(twsConnection)
   if (write_out) {
+    disconnectTWSConn(twsConnection)
     ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
     tryCatch(write.zoo(as.xts(ticker_hist_data), ticker_csv_file, index.name = "Date", sep=","), error = function(e) { message(paste(ticker, "write to csv failed", sep = " "))})
   } else {
+    disconnectTWSConn(twsConnection)
     return(ticker_hist_data)
   }
 }
