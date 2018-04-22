@@ -115,7 +115,7 @@ getLiveMarketData<-function(twsConnection, ticker){
 getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", write_out = FALSE, path_to_ticker_dir = NA, 
                             error_log_file = NA){
   message(paste("pulling ticker ", ticker, sep = ""))
-  twsConnection<-connect2TWS()
+  twsConnection<-connect2TWS(port_number = 4001)
   con_details<-reqContractDetails(twsConnection, twsEquity(ticker))
   primary_exch<-tryCatch(con_details[[1]]$contract$primary, error = function(e) { message(paste(ticker, ": not able to retrieve primary exchange.", sep = ""));
     write_error_log(paste(ticker, " primary exchange not able to retrieve, message was: ", e, sep = ""))})
