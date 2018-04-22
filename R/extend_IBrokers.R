@@ -114,23 +114,34 @@ getLiveMarketData<-function(twsConnection, ticker){
 #' @examples
 getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", write_out = FALSE, path_to_ticker_dir = NA, 
                             error_log_file = NA){
+  error_flag = FALSE
   message(paste("pulling ticker ", ticker, sep = ""))
   twsConnection<-connect2TWS(port_number = 4001)
-  con_details<-reqContractDetails(twsConnection, twsEquity(ticker))
-  primary_exch<-tryCatch(con_details[[1]]$contract$primary, error = function(e) { message(paste(ticker, ": not able to retrieve primary exchange.", sep = ""));
-    write_error_log(paste(ticker, " primary exchange not able to retrieve, message was: ", e, sep = ""))})
-  message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
-  contract_obj<-twsSTK(ticker, primary = primary_exch)
-  ticker_hist_data<-tryCatch(reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
-                                      duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file); Sys.sleep(12)})
-  #disconnectTWSConn(twsConnection)
-  if (write_out) {
+  con_details<-tryCatch(reqContractDetails(twsConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
+  if (length(con_details) == 0){
+    message(paste(ticker, " request for contract details returned an empty list", sep = ""))
     disconnectTWSConn(twsConnection)
-    ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
-    tryCatch(write.zoo(as.xts(ticker_hist_data), ticker_csv_file, index.name = "Date", sep=","), error = function(e) { message(paste(ticker, "write to csv failed", sep = " "))})
+    return (NULL)
   } else {
+    primary_exch<-tryCatch(con_details[[1]]$contract$primary, error = function(e) { message(paste(ticker, ": not able to retrieve primary exchange.", sep = ""));
+      write_error_log(paste(ticker, ",primary exchange not able to retrieve, message was: ", e, sep = ""), error_log_file); "FAILED"})
+  }
+  if (primary_exch == "FAILED"){
     disconnectTWSConn(twsConnection)
-    return(ticker_hist_data)
+    write_error_log(paste(ticker, ",FAILED", sep =""), error_log_file)
+  } else {
+    message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
+    contract_obj<-twsSTK(ticker, primary = primary_exch)
+    ticker_hist_data<-tryCatch(reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
+                                      duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
+    if (write_out) {
+      disconnectTWSConn(twsConnection)
+      ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
+      tryCatch(write.zoo(as.xts(ticker_hist_data), ticker_csv_file, index.name = "Date", sep=","), error = function(e) { message(paste(ticker, "write to csv failed", sep = " "))})
+    } else {
+      disconnectTWSConn(twsConnection)
+      return(ticker_hist_data)
+    }
   }
 }
 
