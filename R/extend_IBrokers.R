@@ -124,11 +124,11 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
     return (NULL)
   } else {
     primary_exch<-tryCatch(con_details[[1]]$contract$primary, error = function(e) { message(paste(ticker, ": not able to retrieve primary exchange.", sep = ""));
-      write_error_log(paste(ticker, ",primary exchange not able to retrieve, message was: ", e, sep = ""), error_log_file); "FAILED"})
+      write_error_log(ticker, error_log_file, message = paste("primary exchange not able to retrieve, message was: ", e, sep = "")); "FAILED"})
   }
   if (primary_exch == "FAILED"){
     disconnectTWSConn(twsConnection)
-    write_error_log(paste(ticker, ",FAILED", sep =""), error_log_file)
+    write_error_log(ticker, error_log_file, message = "primary exchange lookup failed!")
   } else {
     message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
     contract_obj<-twsSTK(ticker, primary = primary_exch)

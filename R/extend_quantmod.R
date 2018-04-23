@@ -454,6 +454,44 @@ cum_MinMax_AllPrices<-function(xts_obj, period_type="weeks", num_periods=1){
   return(merged_xts)
 }
 
+#' WAP
+#' 
+#' An extension of the function Cl(), Op(), Hi(), Lo(), Vo(), etc...
+#' This returns the column which is the Weighted Average Price (WAP)
+#' column, if it exists in the inputted data.frame.
+#'
+#' @param x 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+WAP<-function(x){
+  if (has.WAP(x))
+    return (x[, grep("WAP", colnames(x), ignore.case = TRUE)])
+  stop("subscript out of bounds: no column names containing \"WAP\"")
+}
+
+#' has.WAP
+#' 
+#' Private funciton used by WAP(). Tells us whether that is a WAP column
+#' in the inputted data.frame. Exactly like the existing QuantMod function
+#' has.Cl, has.Op, has.Hi, has.Lo.
+#'
+#' @param x 
+#' @param which 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+has.WAP<-function(x, which = FALSE ){
+  loc <- grep("WAP", colnames(x), ignore.case = TRUE)
+  if (!identical(loc, integer(0))) {
+    return (if (which) loc else TRUE)
+  } else (FALSE)
+}
+
 #' get_close_column
 #'
 #' Wrapper for the xts built-in fucntion: Cl()

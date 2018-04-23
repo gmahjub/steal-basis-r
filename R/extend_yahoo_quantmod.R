@@ -60,7 +60,7 @@ check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2
 #' AdjustOHLC in quantmod is NOT reliable. Yahoo data is currently all split
 #' adjusted, but only the adjusted close is split AND dividend adjusted. Here we
 #' are downloading the dividend data and doing the ratio calc ourselves. We are
-#' downloading the divident data from Yahoo! as source.
+#' downloading the dividend data from Yahoo! as source.
 #'
 #' @param tickers list of tickers, strings, for whose prices will be adjusted
 #'   based on the close-adjusted adjustment.

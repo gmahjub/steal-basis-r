@@ -77,10 +77,14 @@ get_intraday_data_alphavantager<-function(ticker, error_log, interval="1min", ou
 #' @export
 #'
 #' @examples
-write_error_log<-function(ticker, error_log){
+write_error_log<-function(ticker, error_log, message = NA){
   message(paste("In write_error_log, writing ", error_log, sep = ""))
   log_con <- file(error_log, open = "a")
-  error_message<-paste(ticker, "Failed\n", sep = ",")
+  if (is.na(message)){
+    error_message<-paste(ticker, "Failed,Failed\n", sep = ",")
+  } else {
+    error_message<-paste(ticker, message, "Failed\n", sep = ",")
+  }
   cat(error_message, file = log_con)
   flush(log_con)
   close(log_con)
@@ -390,7 +394,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
   }
   if (is.null(list_of_tickers)){
     log_con <- file(error_log_file, open = "a")
-    cat("Symbol,Status\n", file = log_con)
+    cat("Symbol,Message,Status\n", file = log_con)
     flush(log_con)
     close(log_con)
     list_of_tickers<-getSymbolsUniverse()
@@ -401,10 +405,10 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
   tickerList<-as.character(failedFile$Symbol)
   rerun_log_file<-paste(error_log_file, "1", sep =".")
   log_con<-file(rerun_log_file, open = "a")
-  cat("Symbol,Status\n", file = log_con)
+  cat("Symbol,Message,Status\n", file = log_con)
   flush(log_con)
   close(log_con)
-  Sys.sleep(60)
+  Sys.sleep(10)
   sapply(tickerList, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = rerun_log_file)
   # final run
   rerunFile<-read.csv(file = rerun_log_file, header = TRUE, sep = ",")
@@ -414,7 +418,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
   cat("Symbol,Status\n", file = log_con)
   flush(log_con)
   close(log_con)
-  Sys.sleep(60)
+  Sys.sleep(10)
   sapply(tickerList, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = finalRun_log_file)
 }
 
