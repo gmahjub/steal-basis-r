@@ -83,13 +83,18 @@ get_holdings_filtered<-function(holdings_tibble_obj, filter_column_name, filter_
 load_intraday_timeseries_tibble<-function(ticker, path_to_ticker_dir){
   total_path_to_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
   message(paste("opening file ", total_path_to_csv_file, sep = ""))
-  tibble_intraday_ts<-as.tibble(read.csv(total_path_to_csv_file,
-                                      header=TRUE, sep = ",",
-                                      colClasses = c("character", "POSIXct", "numeric", "numeric", "numeric",
-                                                     "numeric", "integer")))
-  tibble_intraday_ts<-tibble_intraday_ts[,2:ncol(tibble_intraday_ts)]
+  tibble_intraday_ts<-tryCatch(as.tibble(read.csv(total_path_to_csv_file, header=TRUE, sep = ",", colClasses = c("character", "POSIXct", "numeric", "numeric", "numeric", "numeric", "integer"))),
+                               error = function (e) { as.tibble(read.csv(total_path_to_csv_file, header = TRUE, sep = ","))})
+  isBarTimeStamp<-colnames(tibble_intraday_ts[,1]) == "BarTimeStamp"
+  # the first column should always be the timestamp. The only exception is when we have a counter in the first column.
+  if (!isBarTimeStamp){
+    tibble_intraday_ts<-tibble_intraday_ts[,2:ncol(tibble_intraday_ts)]
+  }
+  tibble_intraday_ts<-tibble_intraday_ts %>% mutate(BarTimeStamp = as.POSIXct(BarTimeStamp, format = "%Y-%m-%d %H:%M:%S"))
   return(tibble_intraday_ts)
 }
+
+
 
 #' load_intraday_timeseries_xts
 #'

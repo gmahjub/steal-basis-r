@@ -78,6 +78,7 @@ get_intraday_data_alphavantager<-function(ticker, error_log, interval="1min", ou
 #'
 #' @examples
 write_error_log<-function(ticker, error_log){
+  message(paste("In write_error_log, writing ", error_log, sep = ""))
   log_con <- file(error_log, open = "a")
   error_message<-paste(ticker, "Failed\n", sep = ",")
   cat(error_message, file = log_con)
@@ -134,15 +135,17 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < -1) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
       remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log)
-      remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
-      remote<-TRUE
       if (!is.null(remote_intraday_tibble)){
-        remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
-        new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
-        intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
-        do.call("<-", list(paste(ticker, "intra", sep='.'), intraday_tibble_obj))
-        write_intraday_av(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir,
+        remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
+        remote<-TRUE
+        if (!is.null(remote_intraday_tibble)){
+          remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
+          new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
+          intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
+          do.call("<-", list(paste(ticker, "intra", sep='.'), intraday_tibble_obj))
+          write_intraday_av(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir,
                           column_names = c(names(remote_intraday_tibble)) )
+        }
       }
     } else {
       message(paste("local file is up to date...", path_to_ticker_dir, sep = ""))
@@ -151,14 +154,16 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "9 M", whatToShow = "TRADES", error_log_file = error_log )
-    do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
-    write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
+    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log )
+    if (!is.null(remote_intraday_tibble)){
+      do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
+      write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
+    }
   }
   # lets do some clean up if possible
   rm(remote_intraday_tibble)
   if (remote){
-    Sys.sleep(11)
+    Sys.sleep(5)
     remote<-FALSE
   }
 }
@@ -373,17 +378,17 @@ getSymbolsUniverse<-function(){
 #' @export
 #'
 #' @examples
-eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list_of_tickers=NA){
+eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list_of_tickers=NULL){
   set_alphavantage_api_key(path_to_api_key_file)
   error_log_file<-paste(Sys.Date(), "AvTickPull_FailStatus.csv", sep = ".")
-  if (is.na(list_of_tickers)){
-    if (Sys.info()['sysname'] == "Darwin"){
-      error_file_dir<-paste(getwd(), "../../../data/alphavantage/logs", sep = "/")
-      error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
-    } else {
-      error_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\logs", sep = "\\")
-      error_log_file<-paste(error_file_dir, error_log_file, sep = "\\")
-    }
+  if (Sys.info()['sysname'] == "Darwin"){
+    error_file_dir<-paste(getwd(), "../../../data/alphavantage/logs", sep = "/")
+    error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
+  } else {
+    error_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\logs", sep = "\\")
+    error_log_file<-paste(error_file_dir, error_log_file, sep = "\\")
+  }
+  if (is.null(list_of_tickers)){
     log_con <- file(error_log_file, open = "a")
     cat("Symbol,Status\n", file = log_con)
     flush(log_con)
@@ -424,6 +429,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
 #' @examples
 eod_batch_IBKR_intraday<-function(path_to_ticker_dir, tickers=NULL){
   error_log_file<-paste(Sys.Date(), "IBKRgetHist_FailStatus.csv", sep = ".")
+  message(paste("Error log file is ", error_log_file, sep = ""))
   if (Sys.info()['sysname'] == "Darwin"){
     error_file_dir<-paste(getwd(), "../../../data/IBKR/logs", sep = "/")
     error_log_file<-paste(error_file_dir, error_log_file, sep = "/")
@@ -432,6 +438,10 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, tickers=NULL){
     error_log_file<-paste(error_file_dir, error_log_file, sep = "\\")
   }
   if (is.null(tickers)){
+    log_con<-file(error_log_file, open = "a")
+    cat("Symbol,Message,Status\n", file = log_con)
+    flush(log_con)
+    close(log_con)
     tickers<-getSymbolsUniverse()
   }
   sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)

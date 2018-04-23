@@ -35,6 +35,7 @@ write_ticker_csv <- function(ticker, path_to_ticker_dir, column_names=NULL) {
 #'
 #' @examples
 write_intraday_IBKR <- function(ticker, data_obj, path_to_ticker_dir, column_names=NULL, intraday = TRUE ){
+  message(paste("path_to_ticker_dir is ", path_to_ticker_dir, " and ticker is ", ticker, sep = ""))
   ticker_csv_file <- paste(path_to_ticker_dir, ticker, ".csv", sep = "")
   write.zoo(as.xts(data_obj), ticker_csv_file, index.name="BarTimeStamp", sep = ",")
 }

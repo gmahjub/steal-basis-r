@@ -1,7 +1,7 @@
 #' get_all_dividends_for_this_tibble
 #'
 #' Returns a tibble with columns: date, dividends, symbol. Basically a list of
-#' all the dividends paid out for each distinch symbol in the tibble_obj passed
+#' all the dividends paid out for each distinct symbol in the tibble_obj passed
 #' in as parameter. Most simply, the inputted tibble_obj will be a result of a
 #' call to tq_index(). The input tibble must have a column named symbol. Stores
 #' a copy of the dividend tibble in a csv file named <index_name>.dividends.csv.
@@ -19,22 +19,28 @@
 #' @export
 #'
 #' @examples
-get_all_dividends_for_this_tibble<-function(tibble_obj, index_dir, index_name = "DOW", force_pull = FALSE){
+get_all_dividends_for_this_tibble<-function(tibble_obj, index_dir=NA, index_name = NA, force_pull = FALSE){
   require(lubridate)
-  path_to_local_div_file<-paste(index_dir, index_name, "/", sep = "")
-  path_to_local_div_file<-paste(path_to_local_div_file, index_name, ".dividends.csv", sep = "")
-  if (!force_pull) {
-    if (file.exists(path_to_local_div_file)){
-      # how old is the file? If older than 1 day, go to remote destination.
-      last_modified<-file.info(path_to_local_div_file)$mtime
-      # last modified is a POSIXct
-      if (difftime(Sys.time(), last_modified, Sys.timezone(), units = c("days")) > 1){
-        # then we must pull the dividend data from remote location
+  if (!is.na(index_dir)){
+    path_to_local_div_file<-paste(index_dir, index_name, "/", sep = "")
+    path_to_local_div_file<-paste(path_to_local_div_file, index_name, ".dividends.csv", sep = "")
+  
+    if (!force_pull) {
+      if (file.exists(path_to_local_div_file)){
+        # how old is the file? If older than 1 day, go to remote destination.
+        last_modified<-file.info(path_to_local_div_file)$mtime
+        # last modified is a POSIXct
+        if (difftime(Sys.time(), last_modified, Sys.timezone(), units = c("days")) > 1){
+          # then we must pull the dividend data from remote location
+          force_pull = TRUE
+        }
+      } else {
         force_pull = TRUE
       }
-    } else {
-      force_pull = TRUE
     }
+  } else {
+    # one off pull of dividends, no asssociation to any index-wide pull.
+    force_pull = TRUE
   }
   message(paste("force pull is", force_pull, sep = " "))
   if (force_pull){
@@ -51,7 +57,9 @@ get_all_dividends_for_this_tibble<-function(tibble_obj, index_dir, index_name = 
     dividend_dates<-dividend_dates[,2:ncol(dividend_dates)]
   }
   # write out the dividends table to local disk
-  write.csv(dividend_dates, file = path_to_local_div_file)
+  if (!is.na(index_dir)){
+    write.csv(dividend_dates, file = path_to_local_div_file)
+  }
   return(dividend_dates)
 }
 
@@ -77,6 +85,7 @@ adjustOHLC_DividendWise_tibble_obj<-function(tibble_obj, dividend_dates_tibble){
   new_tibble_obj<-left_join(tibble_obj, dividend_dates_tibble, by=c("date", "symbol"))
   new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(dividends=lead(dividends)) %>% na.omit()
   new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(single_div_adj_rat = (1 - as.numeric(dividends)/as.numeric(close)))
+  
   final_div_rat_tibble_obj<-new_tibble_obj %>% filter(symbol == distinct_symbols[1]) %>% arrange(desc(date)) %>%
     mutate(final_div_rat = cumprod(single_div_adj_rat)) %>% select(c("symbol", "date", "final_div_rat"))
   full_tibble_obj <- tibble_obj %>% filter(symbol == distinct_symbols[1])
@@ -95,6 +104,22 @@ adjustOHLC_DividendWise_tibble_obj<-function(tibble_obj, dividend_dates_tibble){
   return (full_tibble_obj)
 }
 
+adjustVariablePxTypes_Dividendwise_tibble_obj<-function(tibble_obj, dividend_dates_tibbl){
+  distinct_symbols<-distinct(dividend_dates_tibble, symbol)
+  distinct_symbols<-distinct_symbols$symbol
+  new_tibble_obj<-left_join(tibble_obj, dividend_dates_tibble, by=c("date", "symbol"))
+  new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(dividends=lead(dividends)) %>% na.omit()
+  wap_col<-new_tibble_obj[,"AAPL.WAP"]
+  wap_col<-var_colname_helper(wap_col)
+  new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(single_div_adj_rat = (1 - as.numeric(dividends)/wap_col))
+}
+
+var_colname_helper<-function(var_col){
+  var_col<-unlist(var_col)
+  var_col<-as.numeric(var_col)
+  return (var_col)
+}
+
 #' get_single_dividend_history
 #'
 #' @param ticker 
@@ -103,6 +128,21 @@ adjustOHLC_DividendWise_tibble_obj<-function(tibble_obj, dividend_dates_tibble){
 #' @export
 #'
 #' @examples
-get_single_dividend_history<-function(ticker){
-  tq_get(ticker, get = "dividends", from = "2017-01-01")
+get_single_dividend_history<-function(ticker, div_hist_start_date = "2017-01-01"){
+  div_tibble<-tq_get(ticker, get = "dividends", from = div_hist_start_date)
+  div_tibble$symbol<-ticker
+  return (div_tibble)
+}
+
+adjust_IBKR_intraday_Dividend<-function(ticker, tibble_obj){
+  div_hist_start_date<-as.Date(tibble_obj$BarTimeStamp[1], format = "%Y-%M-%D")
+  #headers<-colnames(tibble_obj)
+  #headers[which(headers == "BarTimeStamp")] <- "date"
+  #colnames(tibble_obj) <- headers
+  tibble_obj$symbol<-ticker
+  tibble_obj$date<-as.Date(tibble_obj$BarTimeStamp, format = "%Y-%M-%D")
+  div_hist_start_date<-div_hist_start_date - 5
+  single_div_history<-get_single_dividend_history(ticker, div_hist_start_date = div_hist_start_date)
+  #single_div_history<-single_div_history %>% mutate(date = as.POSIXct(date, format = "%Y-%m-%d %H:%M:%S"))
+  adjustOHLC_DividendWise_tibble_obj(tibble_obj, single_div_history)
 }
