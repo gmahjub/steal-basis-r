@@ -151,7 +151,7 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "1 W", whatToShow = "TRADES", error_log_file = error_log )
+    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "9 M", whatToShow = "TRADES", error_log_file = error_log )
     do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
     write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
   }
