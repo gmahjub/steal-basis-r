@@ -131,11 +131,11 @@ adjIbkrIntraday_helper<-function(tibble_obj){
   cl_col_unlisted<-var_colname_helper(cl_col)
   wap_col<-WAP(tibble_obj)
   wap_col_unlisted<-var_colname_helper(wap_col)
-  full_tibble_obj<-tibble_obj %>% mutate(Adj.Open = if_else(!is.na(final_div_rat), (as.numeric(op_col_unlisted)*as.numeric(final_div_rat)), as.numeric(op_col_unlisted)))
-  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.High = if_else(!is.na(final_div_rat), (as.numeric(hi_col_unlisted)*as.numeric(final_div_rat)), as.numeric(hi_col_unlisted)))
-  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.Low = if_else(!is.na(final_div_rat), (as.numeric(lo_col_unlisted)*as.numeric(final_div_rat)), as.numeric(lo_col_unlisted)))
-  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.Close = if_else(!is.na(final_div_rat), (as.numeric(cl_col_unlisted)*as.numeric(final_div_rat)), as.numeric(cl_col_unlisted)))
-  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.WAP = if_else(!is.na(final_div_rat), (as.numeric(wap_col_unlisted)*as.numeric(final_div_rat)), as.numeric(wap_col_unlisted)))
+  full_tibble_obj<-tibble_obj %>% mutate(Adj.Open = as.numeric(op_col_unlisted)*as.numeric(final_div_rat)*as.numeric(final_split_rat))
+  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.High = as.numeric(hi_col_unlisted)*as.numeric(final_div_rat)*as.numeric(final_split_rat))
+  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.Low = as.numeric(lo_col_unlisted)*as.numeric(final_div_rat)*as.numeric(final_split_rat))
+  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.Close = as.numeric(cl_col_unlisted)*as.numeric(final_div_rat)*as.numeric(final_split_rat))
+  full_tibble_obj<-full_tibble_obj %>% mutate(Adj.WAP = as.numeric(wap_col_unlisted)*as.numeric(final_div_rat)*as.numeric(final_split_rat))
   return(full_tibble_obj)  
 }
 
@@ -147,7 +147,9 @@ var_colname_helper<-function(var_col){
 
 get_single_dividend_history<-function(ticker, div_hist_start_date = "2017-01-01"){
   div_tibble<-tq_get(ticker, get = "dividends", from = div_hist_start_date)
-  if (is.na(div_tibble)){
+  dim_div_tibble<-dim(div_tibble)
+  num_divs<-dim_div_tibble[1]
+  if (identical(num_divs, integer(0))){
     return (NA)
   }
   div_tibble$symbol<-ticker
@@ -156,7 +158,9 @@ get_single_dividend_history<-function(ticker, div_hist_start_date = "2017-01-01"
 
 get_single_split_history<-function(ticker, split_hist_start_date = "2017-01-01"){
   split_tibble<-tq_get(ticker, get = "splits", from = split_hist_start_date)
-  if (is.na(split_tibble)){
+  dim_split_tibble<-dim(split_tibble)
+  num_splits<-dim_split_tibble[1]
+  if (identical(num_splits, integer(0))){
     return (NA)
   }
   split_tibble$symbol <- ticker
@@ -172,21 +176,35 @@ adjIbkrIntraday<-function(ticker, tibble_obj){
   single_split_history<-get_single_split_history(ticker, split_hist_start_date = div_hist_start_date)
   px_series<-tq_get(ticker, get="stock.prices", from = div_hist_start_date)
   px_series$symbol <- ticker
-  if (is.na(single_div_history) && is.na(single_split_history)){
+  if (is.na(single_div_history) && is.na(single_split_history))
     return (tibble_obj)
-  } else if (is.na(single_split_history)){
+  if (!is.na(single_div_history)){
     new_tibble_obj<-left_join(px_series, single_div_history, by=c("date", "symbol"))
     new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(dividends=lead(dividends)) %>% na.omit()
     new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(single_div_adj_rat = (1 - as.numeric(dividends)/as.numeric(close)))
     final_div_rat_tibble_obj<-new_tibble_obj  %>% arrange(desc(date)) %>%
       mutate(final_div_rat = cumprod(single_div_adj_rat)) %>% select(c("symbol", "date", "final_div_rat"))
-    full_tibble_obj<-left_join(tibble_obj, final_div_rat_tibble_obj, by=c("date", "symbol")) %>% 
+    div_full_tibble_obj<-left_join(tibble_obj, final_div_rat_tibble_obj, by=c("date", "symbol")) %>% 
       replace(., TRUE, lapply(., na.locf, na.rm = FALSE, fromLast = TRUE))
-    res_tibble<-adjIbkrIntraday_helper(full_tibble_obj)
-    res_tibble[, "BarTimeStamp"] <- as.POSIXct(res_tibble[["BarTimeStamp"]])
-    cols_to_drop<-c("symbol", "date", "final_div_rat")
-    res_tibble<-res_tibble %>% select_(.dots = setdiff(names(.), cols_to_drop))
-  } else if (is.na(single_div_history)){
-    
+    div_full_tibble_obj<-div_full_tibble_obj %>% replace_na(list(final_div_rat = as.numeric(1)))
+  } 
+  if (!is.na(single_split_history)){
+    new_tibble_obj<-left_join(px_series, single_split_history, by=c("date", "symbol"))
+    new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(splits=lead(splits)) %>% na.omit()
+    new_tibble_obj<-new_tibble_obj %>% group_by(symbol) %>% mutate(single_split_adj_rat = as.numeric(splits))
+    final_split_rat_tibble_obj<- new_tibble_obj %>% arrange(desc(date)) %>% mutate(final_split_rat = cumprod(single_split_adj_rat)) %>%
+      select(c("symbol", "date", "final_split_rat"))
+    split_full_tibble_obj<-left_join(tibble_obj, final_split_rat_tibble_obj, by=c("date", "symbol")) %>% 
+      replace(., TRUE, lapply(., na.locf, na.rm = FALSE, fromLast = TRUE))
+    split_full_tibble_obj<-split_full_tibble_obj %>% replace_na(list(final_split_rat = as.numeric(1)))
+    if (!is.na(single_div_history))
+      res_tibble<-bind_cols(split_full_tibble_obj, div_full_tibble_obj["final_div_rat"])
+    else
+      res_tibble<-split_full_tibble_obj
   }
+  adj_res_tibble<-adjIbkrIntraday_helper(res_tibble)
+  #adj_res_tibble[, "BarTimeStamp"] <- as.POSIXct(adj_res_tibble[["BarTimeStamp"]])
+  cols_to_drop<-c("symbol", "date", "final_div_rat", "final_split_rat")
+  adj_res_tibble<-adj_res_tibble %>% select_(.dots = setdiff(names(.), cols_to_drop))
+  return (adj_res_tibble)
 }
