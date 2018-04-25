@@ -43,7 +43,7 @@ get_holdings_from_file_in_tibble_fmt<-function(file_path, sep=",", n_rows = -1){
 
 #' get_holdings_filtered
 #'
-#' filters the inputted tilbble based on the conditions specified in paramters.
+#' filters the inputted tibble based on the conditions specified in paramters.
 #' For example, if filter_column name is "Asset.Class" and filter operator is
 #' "==", and the filter condition is "Equity", the we will returned all the rows
 #' in the input tibble object that has the Asset.Class column equal to "Equity".

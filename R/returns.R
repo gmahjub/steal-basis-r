@@ -334,6 +334,3 @@ get_append_yearly_log_returns<-function(tibble_obj, fill_in_between_dates=TRUE){
   } else {new_tibble_obj <- right_join(tibble_obj, new_tibble_obj)}
   return (new_tibble_obj)
 }
-
-
-

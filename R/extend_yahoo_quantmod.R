@@ -106,7 +106,7 @@ adjustOHLC_wrapper<-function(tickers){
 #' @export
 #'
 #' @examples
-yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2017-01-01", end_date = Sys.Date(), write_file = TRUE){
+yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2007-01-01", end_date = Sys.Date(), write_file = TRUE){
   path_to_ticker_dir <- yahoo_stock_prices_dir
   list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names, path_to_ticker_dir, start_date=start_date, end_date = end_date, write_file=write_file)
   list_of_changed_tickers<-list_of_changed_tickers[!is.na(list_of_changed_tickers)]
@@ -119,4 +119,41 @@ yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_d
   ## there is a known bug in here, we do not include in this list the tickers that had to be changed due to R incompaitibility
   ## GM - 2/6/2018
   return(tickers)
+}
+
+#' getYahooDaily_xts
+#'
+#' Check to see if we have the ticker on local disk. Then, check to see if it is
+#' up to date. How to check for up to date? Assume 6:00 pm is when Yahoo updates
+#' their remote location. If the local file is older than the previous day @ 6pm,
+#' then do a remote update.
+#'
+#' @param ticker string format
+#' @param yahoo_stock_prices_dir string, directory path 
+#' @param from_date string, date %Y:%M:%D
+#'
+#' @return xts object
+#' @export
+#'
+#' @examples
+getYahooDaily_xts<-function(ticker, yahoo_stock_prices_dir, from_date = "2007-01-01"){
+  path_to_file<-paste(yahoo_stock_prices_dir, ticker, ".csv", sep = "")
+  if (file.exists(path_to_file)){
+    last_modified<-file.info(path_to_file)$mtime
+    cut_off_time<-strptime("18:00:00", "%H:%M:%S")
+    if (difftime(last_modified, as.POSIXct(cut_off_time)) > -24){
+      message(paste(ticker, ".csv file is up to date, pulling local...", sep = ""))
+      yahoo_daily_xts<-as.xts(read.zoo(path_to_file, header = TRUE, sep = ",", 
+                                       colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer", "numeric", "numeric")))
+      return (yahoo_daily_xts)
+    } else {
+      message(paste(ticker, ".csv file not up to date, going remote...", sep = ""))
+      yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE )
+      return (get(ticker))
+    }
+  } else {
+    message(paste(ticker, ".csv does not exist locally, going remote...", sep = ""))
+    yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
+    return (get(ticker))
+  }
 }

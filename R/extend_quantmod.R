@@ -540,6 +540,7 @@ get_high_column <- function(stock_xts_obj){
 #' get_low_column
 #'
 #' Wrapper for the xts built-in function: Lo()
+#' No reason to use this, make it private as one function in this file does use it.
 #'
 #' @param stock_xts_obj the xts object of timeseries data
 #'
