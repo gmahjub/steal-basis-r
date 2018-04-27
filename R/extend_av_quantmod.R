@@ -24,6 +24,28 @@ av_Main_retrieve_and_write<-function(tickers, path_to_ticker_dir, remote_src="av
   return(tickers)
 }
 
+getAvDaily_xts<-function(ticker, path_to_ticker_dir, from_date = "2007-01-01"){
+  path_to_file<-paste(av_stock_prices_dir, ticker, ".csv", sep = "")
+  if (file.exists(path_to_file)){
+    last_modified<-file.info(path_to_file)$mtime
+    cut_off_time<-strptime("18:00:00", "%H:%M:%S")
+    if (difftime(last_modified, as.POSIXct(cut_off_time)) > -24){
+      message(paste(ticker, ".csv file is up to date, pulling local...", sep = ""))
+      yahoo_daily_xts<-as.xts(read.zoo(path_to_file, header = TRUE, sep = ",", 
+                                       colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer", "numeric", "numeric")))
+      return (yahoo_daily_xts)
+    } else {
+      message(paste(ticker, ".csv file not up to date, going remote...", sep = ""))
+      yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE )
+      return (get(ticker))
+    }
+  } else {
+    message(paste(ticker, ".csv does not exist locally, going remote...", sep = ""))
+    yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
+    return (get(ticker))
+  }
+}
+
 #' check_Rcompat_ticker_names_av
 #'
 #' Check for R compatibiity of ticker names. Anything with a '-' or tickers in
