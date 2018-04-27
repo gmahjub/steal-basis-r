@@ -11,6 +11,8 @@
 #'
 #' @examples
 get_api_key<-function(api_key_file, vendor = "ALPHAVANTAGE"){
+  #message(paste("api key file: ", api_key_file, sep = ""))
+  #message(paste("vendor: ", vendor, sep = ""))
   api_keys_tibble<-as.tibble(read.csv(api_key_file, header = TRUE))
   api_key<- api_keys_tibble %>% filter(Vendor == vendor) %>% select(API_KEY)
   return(as.character(api_key$API_KEY))

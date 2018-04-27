@@ -113,6 +113,7 @@ yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_d
   tickers<-setdiff(tickers, list_of_changed_tickers)
   for (ticker in tickers){do.call("<<-", list(ticker, get(getSymbols(ticker, from=start_date))))}
   adjustOHLC_wrapper(tickers)
+  lapply(ticker, subset_yahoo_xts, from = start_date, to = end_date)
   if (write_file) {
     lapply(tickers, FUN=write_ticker_csv, path_to_ticker_dir = path_to_ticker_dir)
   }
@@ -141,7 +142,8 @@ getYahooDaily_xts<-function(ticker, yahoo_stock_prices_dir, from_date = "2007-01
   if (file.exists(path_to_file)){
     last_modified<-file.info(path_to_file)$mtime
     cut_off_time<-strptime("18:00:00", "%H:%M:%S")
-    if (difftime(last_modified, as.POSIXct(cut_off_time)) > -24){
+    tDiff<-difftime(last_modified, as.POSIXct(cut_off_time))
+    if (difftime(last_modified, as.POSIXct(cut_off_time)) > as.difftime(-24, units = "hours")){
       message(paste(ticker, ".csv file is up to date, pulling local...", sep = ""))
       yahoo_daily_xts<-as.xts(read.zoo(path_to_file, header = TRUE, sep = ",", 
                                        colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer", "numeric", "numeric")))
@@ -156,4 +158,11 @@ getYahooDaily_xts<-function(ticker, yahoo_stock_prices_dir, from_date = "2007-01
     yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
     return (get(ticker))
   }
+}
+
+subset_yahoo_xts<-function(ticker, from, to){
+  the_xts<-get(ticker)
+  fromTo<-paste(from, to, sep = "/")
+  the_xts<-the_xts[fromTo]
+  do.call("<<-", list(ticker, the_xts))
 }

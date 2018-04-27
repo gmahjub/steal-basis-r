@@ -11,6 +11,11 @@ connect2TWS<-function(port_number = 7496){
   return(tws)
 }
 
+connect2IBG<-function(port_number = 4001){
+  ibg = ibgConnect(port = port_number)
+  return (ibg)
+}
+
 #' isTWSConnected
 #'
 #' @param twsConnection 
@@ -116,30 +121,30 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
                             error_log_file = NA){
   error_flag = FALSE
   message(paste("pulling ticker ", ticker, sep = ""))
-  twsConnection<-connect2TWS(port_number = 4001)
-  con_details<-tryCatch(reqContractDetails(twsConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
+  ibgConnection<-connect2IBG(port_number = 4001)
+  con_details<-tryCatch(reqContractDetails(ibgConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
   if (length(con_details) == 0){
     message(paste(ticker, " request for contract details returned an empty list", sep = ""))
-    disconnectTWSConn(twsConnection)
+    disconnectTWSConn(ibgConnection)
     return (NULL)
   } else {
     primary_exch<-tryCatch(con_details[[1]]$contract$primary, error = function(e) { message(paste(ticker, ": not able to retrieve primary exchange.", sep = ""));
       write_error_log(ticker, error_log_file, message = paste("primary exchange not able to retrieve, message was: ", e, sep = "")); "FAILED"})
   }
   if (primary_exch == "FAILED"){
-    disconnectTWSConn(twsConnection)
+    disconnectTWSConn(ibgConnection)
     write_error_log(ticker, error_log_file, message = "primary exchange lookup failed!")
   } else {
     message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
     contract_obj<-twsSTK(ticker, primary = primary_exch)
-    ticker_hist_data<-tryCatch(reqHistoricalData(twsConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
+    ticker_hist_data<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
                                       duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
     if (write_out) {
-      disconnectTWSConn(twsConnection)
+      disconnectTWSConn(ibgConnection)
       ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
       tryCatch(write.zoo(as.xts(ticker_hist_data), ticker_csv_file, index.name = "Date", sep=","), error = function(e) { message(paste(ticker, "write to csv failed", sep = " "))})
     } else {
-      disconnectTWSConn(twsConnection)
+      disconnectTWSConn(ibgConnection)
       return(ticker_hist_data)
     }
   }
