@@ -11,9 +11,9 @@ recursive_partitioning_modeling<-function(data, x, y){
   #rpart::rpart()
   data<-as.data.frame(data)
   formula <- paste(y, x, sep = "~")
-  fitted_model <- rpart::rpart(formula, data, control = rpart.control(cp = 0.05))
-  ggplot(data, aes_string(x = x, y = y)) +
-    geom_point() +
-    geom_smooth(method = "rpart", col = "red", method.args = list(control = rpart.control, list(cp = 0.05)))
-  # geom_smooth and stat_smooth are for all intents and purpose, the same thing.
+  fitted_model <- rpart::rpart(formula, data, cp = 0.002)
+  # we cannot use ggplot with rpart, it throws an error as it is a step function
+  # and not really a smoothing function
+  fitted_model
+  
 }

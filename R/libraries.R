@@ -13,6 +13,8 @@
 #install.packages("pracma")
 #install.packages("IBrokers")
 #install.packages("timetk")
+install.packages("rpart")
+install.packages("rpart.plot")
 
 library(tidyquant)
 library(tidyverse)
@@ -32,6 +34,7 @@ library(timetk)
 library(dplyr)
 library(ggplot2)
 library(rpart)
+library(rpart.plot)
 
 if (Sys.info()['sysname'] == "Darwin"){
   source(paste(getwd(), 'R/write_ticker_csv.R', sep = "/"))
