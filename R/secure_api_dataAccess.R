@@ -120,7 +120,7 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
+eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_number = 7496){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
   file_path <-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
@@ -133,24 +133,25 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     local_intraday_tibble<-local_intraday_tibble[,1:ncol(local_intraday_tibble)]
     last_row_of_local<-local_intraday_tibble[nrow(local_intraday_tibble),]
     last_timestamp_local<-last_row_of_local$BarTimeStamp
-    last_timestamp_local<-as.POSIXct(last_timestamp_local, tz="America/New_York")
-    local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
-    save_original_tz<-as.POSIXct(last_timestamp_local)
-    attr(last_timestamp_local, "tzone")<-"UTC"
+    #last_timestamp_local<-as.POSIXct(last_timestamp_local, tz="America/New_York")
+    #local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
+    #save_original_tz<-as.POSIXct(last_timestamp_local)
+    save_original_tz <- last_timestamp_local
+    #attr(last_timestamp_local, "tzone")<-"UTC"
     remote_intraday_tibble<-FALSE
     if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < -1) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
-      remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log)
+      remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = 7496)
       if (!is.null(remote_intraday_tibble)){
         remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
         remote<-TRUE
         if (!is.null(remote_intraday_tibble)){
-          remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
+          #remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
           new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
           intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
+          intraday_tibble_obj<-tk_xts(intraday_tibble_obj, date_var = BarTimeStamp, select = -BarTimeStamp)
           do.call("<-", list(paste(ticker, "intra", sep='.'), intraday_tibble_obj))
-          write_intraday_av(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir,
-                          column_names = c(names(remote_intraday_tibble)) )
+          write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
         }
       }
     } else {
@@ -160,7 +161,7 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log){
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log )
+    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, port_number = 7496 )
     if (!is.null(remote_intraday_tibble)){
       do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
       write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
@@ -433,7 +434,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_intraday<-function(path_to_ticker_dir, tickers=NULL){
+eod_batch_IBKR_intraday<-function(path_to_ticker_dir, port_number, tickers=NULL){
   error_log_file<-paste(Sys.Date(), "IBKRgetHist_FailStatus.csv", sep = ".")
   message(paste("Error log file is ", error_log_file, sep = ""))
   if (Sys.info()['sysname'] == "Darwin"){
@@ -450,7 +451,7 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, tickers=NULL){
     close(log_con)
     tickers<-getSymbolsUniverse()
   }
-  sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
+  sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, port_number = port_number)
 }
 
 #' getTickersAsVector
