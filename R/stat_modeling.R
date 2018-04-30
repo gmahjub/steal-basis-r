@@ -14,6 +14,28 @@ recursive_partitioning_modeling<-function(data, x, y){
   fitted_model <- rpart::rpart(formula, data, cp = 0.002)
   # we cannot use ggplot with rpart, it throws an error as it is a step function
   # and not really a smoothing function
-  fitted_model
+  return (rpart_model)
+}
+
+prp_impl<-function(rpart_model){
+  
+}
+
+eda_impl<-function(data){
+  ggplot(data, aes_string(x = ))
+}
+
+captionFinePrint<-function(theFinePrint = "Get a lawyer, he'll know what to write here!"){
+  cap <- labs(caption = paste0(theFinePrint))
+  return (cap)
+}
+
+build_base_model<-function(formula, data){
+  # lm()
+  # rpart()
+}
+
+build_aug_model<-function(formula, data){
+  # a different formuala, compare this model to the base model.
   
 }
