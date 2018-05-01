@@ -15,6 +15,7 @@
 #install.packages("timetk")
 install.packages("rpart")
 install.packages("rpart.plot")
+install.packages("mosaic")
 
 library(tidyquant)
 library(tidyverse)
@@ -35,6 +36,7 @@ library(dplyr)
 library(ggplot2)
 library(rpart)
 library(rpart.plot)
+library(mosaic)
 
 if (Sys.info()['sysname'] == "Darwin"){
   source(paste(getwd(), 'R/write_ticker_csv.R', sep = "/"))
