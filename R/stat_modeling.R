@@ -20,6 +20,7 @@ recursive_partitioning_modeling<-function(data, x, y, cp = 0.002){
 prp_impl<-function(rpart_model){
   # prp is what we use to draw the relationships that rpart finds
   # in the data.
+  prp(rpart_model, type = 3)
 }
 
 build_base_model<-function(formula, data){
@@ -113,3 +114,4 @@ categorical_error_rate<-function(data, resp_var, explain_vars, cp = 0.002){
   cat_error_rate <- with(data = model_output, mean(model_output != resp_var, na.rm = TRUE))
   return (cat_error_rate)
 }
+
