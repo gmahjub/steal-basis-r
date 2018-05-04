@@ -123,6 +123,7 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
 eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_number = 7496){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
+  message(paste("connect to IB API port number ", port_number, sep = ""))
   file_path <-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
   remote<-FALSE
   if (file.exists(file_path)){
@@ -141,7 +142,7 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_numb
     remote_intraday_tibble<-FALSE
     if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < -1) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
-      remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = 7496)
+      remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = port_number)
       if (!is.null(remote_intraday_tibble)){
         remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
         remote<-TRUE
@@ -161,7 +162,7 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_numb
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, port_number = 7496 )
+    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, port_number = port_number )
     if (!is.null(remote_intraday_tibble)){
       do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
       write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
