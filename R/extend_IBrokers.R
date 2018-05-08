@@ -117,12 +117,16 @@ getLiveMarketData<-function(twsConnection, ticker){
 #' @export
 #'
 #' @examples
-getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", write_out = FALSE, path_to_ticker_dir = NA, 
-                            error_log_file = NA, port_number = 7496){
+getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", contractType = "E", write_out = FALSE, path_to_ticker_dir = NA, 
+                            error_log_file = NA, port_number = 4001){
   error_flag = FALSE
   message(paste("pulling ticker ", ticker, sep = ""))
   ibgConnection<-connect2IBG(port_number = port_number)
-  con_details<-tryCatch(reqContractDetails(ibgConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
+  if (contractTyep == "E")
+    con_obj<-twsEquity(ticker)
+  else if (contractType == "F")
+    con_obj<-twsFuture()
+    con_details<-tryCatch(reqContractDetails(ibgConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
   if (length(con_details) == 0){
     message(paste(ticker, " request for contract details returned an empty list", sep = ""))
     disconnectTWSConn(ibgConnection)
