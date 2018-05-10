@@ -122,11 +122,11 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
   error_flag = FALSE
   message(paste("pulling ticker ", ticker, sep = ""))
   ibgConnection<-connect2IBG(port_number = port_number)
-  if (contractTyep == "E")
+  if (contractType == "E")
     con_obj<-twsEquity(ticker)
   else if (contractType == "F")
     con_obj<-twsFuture()
-    con_details<-tryCatch(reqContractDetails(ibgConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
+  con_details<-tryCatch(reqContractDetails(ibgConnection, twsEquity(ticker)), warning = function(w) { message(paste(ticker, " is possibly an invalid ticker...", sep = ""))})
   if (length(con_details) == 0){
     message(paste(ticker, " request for contract details returned an empty list", sep = ""))
     disconnectTWSConn(ibgConnection)
@@ -151,6 +151,67 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
       disconnectTWSConn(ibgConnection)
       return(ticker_hist_data)
     }
+  }
+}
+
+#' getFutContractObject
+#'
+#' Return the contract object based on provided symbol, using reqContractDetails
+#' of IBrokers.
+#'
+#' @param symbol
+#'
+#' @return twsContract object
+#' @export
+#'
+#' @examples
+getFutContractObject<-function(symbol = 'ES'){
+  twsConnection<-connect2TWS()
+  con_obj<-twsFuture(symbol = symbol, exch = "", expiry = "")
+  con_details<-reqContractDetails(twsConnection, con_obj)
+  twsContract_obj<-con_details[[1]]$contract
+  disconnectTWSConn(twsConnection)
+  return (twsContract_obj)
+}
+
+#' getHistoricalData_futs
+#' 
+#' Get historical data for a symbol, returned in xts format or written to csv file.
+#'
+#' @param symbol 
+#' @param barSize 
+#' @param duration 
+#' @param whatToShow 
+#' @param write_out 
+#' @param path_to_ticker_dir 
+#' @param error_log_file 
+#' @param port_number 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getHistoricalData_futs<-function(symbol, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", secType = "CONTFUT", write_out = FALSE, 
+                                    path_to_ticker_dir = NA, error_log_file = NA, port_number = 7496) {
+  # continuous futures only supported on TWS Version 971 or higher, not available on IB Gateway
+  error_flag = FALSE
+  message(paste("pulling continuous futures ticker ", symbol, sep = ""))
+  twsConnection<-connect2TWS(port_number = port_number)
+  con_obj<-twsFuture(symbol = symbol, exch = "", expiry = "")
+  con_details<-reqContractDetails(twsConnection, con_obj)
+  twsContract_obj<-con_details[[1]]$contract
+  twsContract_obj$sectype<-secType
+  symbol_hist_data<-tryCatch(reqHistoricalData(twsConnection, twsContract_obj, whatToShow = whatToShow, barSize = barSize, 
+                                               duration = duration), error = function(e) {message(paste(symbol, "Failed", sep = ",")); 
+                                                 write_error_log(ticker, error_log_file)})
+  if (write_out) {
+    disconnectTWSConn(twsConnection)
+    symbol_csv_file<-paste(path_to_ticker_dir, symbol, ".csv", sep = "")
+    tryCatch(write.zoo(as.xts(symbol_hist_data), symbol_csv_file, index.name = "Date", sep=","), error = function(e) { 
+      message(paste(symbol, "write to csv failed", sep = " "))})
+  } else {
+    disconnectTWSConn(twsConnection)
+    return(symbol_hist_data)
   }
 }
 

@@ -120,7 +120,7 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_number = 7496){
+eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_class, port_number = 7496){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
   message(paste("connect to IB API port number ", port_number, sep = ""))
@@ -134,20 +134,21 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_numb
     local_intraday_tibble<-local_intraday_tibble[,1:ncol(local_intraday_tibble)]
     last_row_of_local<-local_intraday_tibble[nrow(local_intraday_tibble),]
     last_timestamp_local<-last_row_of_local$BarTimeStamp
-    #last_timestamp_local<-as.POSIXct(last_timestamp_local, tz="America/New_York")
-    #local_intraday_tibble$BarTimeStamp<-force_tz(local_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
-    #save_original_tz<-as.POSIXct(last_timestamp_local)
     save_original_tz <- last_timestamp_local
-    #attr(last_timestamp_local, "tzone")<-"UTC"
     remote_intraday_tibble<-FALSE
     if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < -1) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
-      remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = port_number)
+      if (asset_class == "Futures"){
+        remote_intraday_tibble <- getHistoricalData_futs(ticker, error_log_file = error_log, port_number = port_number)
+      } else if (asset_class == "FOREX"){
+        remote_intraday_tibble <- getHistoricalData_forex(ticker, error_log_file = error_log, port_number = port_number)
+      } else {
+        remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = port_number)
+      }
       if (!is.null(remote_intraday_tibble)){
         remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
         remote<-TRUE
         if (!is.null(remote_intraday_tibble)){
-          #remote_intraday_tibble$BarTimeStamp<-force_tz(remote_intraday_tibble$BarTimeStamp, tzone = "America/New_York")
           new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
           intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
           intraday_tibble_obj<-tk_xts(intraday_tibble_obj, date_var = BarTimeStamp, select = -BarTimeStamp)
@@ -162,7 +163,16 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, port_numb
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, port_number = port_number )
+    if (asset_class == "Futures"){
+      remote_intraday_tibble<-getHistoricalData_futs(ticker, barSize = "1 min", duration = "12 M", whatToShow = "TRADES", error_log_file = error_log, 
+                                                     port_number = port_number)
+    } else if (asset_class == "FOREX"){
+      remote_intraday_tibble<-getHistoricalData_forex(ticker, barSize = "1 min", duration = "1 Y", whatToShow = "TRADES", error_log_file = error_log,
+                                                      port_number = port_number)
+    } else { 
+      remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, 
+                                                port_number = port_number )
+    }
     if (!is.null(remote_intraday_tibble)){
       do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
       write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = TRUE)
@@ -353,7 +363,7 @@ when_was_mkt_open_last<-function(){
 #' @export
 #'
 #' @examples
-getSymbolsUniverse<-function(){
+getSymbolsUniverse<-function(assetClass){
   if (Sys.info()['sysname'] == "Darwin"){
     theFileOfFiles<-paste(getwd(), "../../../data/alphavantageTickPullFiles.csv", sep = "/")
     holdings_file_dir<-paste(getwd(), "../../../data/", sep = "/")
@@ -362,14 +372,22 @@ getSymbolsUniverse<-function(){
     holdings_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\", sep = "\\")
   }
   fileOfFiles<-read.csv(file = theFileOfFiles, header = TRUE, sep = ",")
+  fileOfFiles<-fileOfFiles %>% filter(AssetClass == assetClass)
   fileList<-as.vector(fileOfFiles$SymbolsFileName)
   append_dir<-function(f) paste(holdings_file_dir, f, sep = "")
   list_ticker_file_paths<-sapply(fileList, FUN = append_dir)
-  list_of_tibbles<-sapply(list_ticker_file_paths, FUN = get_holdings_from_file_in_tibble_fmt)
-  list_of_filtered_tibbles<-sapply(list_of_tibbles, FUN = get_holdings_filtered, filter_column_name = "Asset.Class", 
+  if (length(list_ticker_file_paths) == 1){
+    single_tibble<-get_holdings_from_file_in_tibble_fmt(list_ticker_file_paths)
+    single_filtered_tibble<-get_holdings_filtered(single_tibble, filter_column_name = "Asset.Class", filter_operator = "==", filter_value = "Equity")
+    ticker_vector<-getTickersAsVector(single_filtered_tibble)
+    list_of_tickers<-as.character(unlist(ticker_vector))
+  } else {
+    list_of_tibbles<-sapply(list_ticker_file_paths, FUN = get_holdings_from_file_in_tibble_fmt)
+    list_of_filtered_tibbles<-sapply(list_of_tibbles, FUN = get_holdings_filtered, filter_column_name = "Asset.Class", 
                                    filter_operator = "==", filter_value = "Equity")
-  list_of_ticker_vectors<-sapply(list_of_filtered_tibbles, FUN = getTickersAsVector)
-  list_of_tickers<-as.character(unlist(list_of_ticker_vectors))
+    list_of_ticker_vectors<-sapply(list_of_filtered_tibbles, FUN = getTickersAsVector)
+    list_of_tickers<-as.character(unlist(list_of_ticker_vectors))
+  }
   return (list_of_tickers)
 }
 
@@ -401,7 +419,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
     cat("Symbol,Message,Status\n", file = log_con)
     flush(log_con)
     close(log_con)
-    list_of_tickers<-getSymbolsUniverse()
+    list_of_tickers<-getSymbolsUniverse("Equities")
   }
   sapply(list_of_tickers, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
   # rerun
@@ -427,16 +445,22 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
 }
 
 #' eod_batch_IBKR_intraday
+#' 
+#' we get many different types of data from IBrokers, not just equities. So we need asset_class parameter to identify
+#' what we are going to pull, whether its equities, futures, forex, etc...
 #'
 #' @param path_to_ticker_dir 
 #' @param tickers 
+#' @param port_number 
+#' @param error_log_file_name 
+#' @param asset_class valid options are "Equities", "Futures", "FOREX" - others may be added in the future.
 #'
 #' @return
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_intraday<-function(path_to_ticker_dir, port_number, tickers=NULL){
-  error_log_file<-paste(Sys.Date(), "IBKRgetHist_FailStatus.csv", sep = ".")
+eod_batch_IBKR_intraday<-function(path_to_ticker_dir, asset_class, port_number, error_log_file_name = "IBKRgetHist_FailStatus.csv", tickers=NULL){
+  error_log_file<-paste(Sys.Date(), error_log_file_name, sep = ".")
   message(paste("Error log file is ", error_log_file, sep = ""))
   if (Sys.info()['sysname'] == "Darwin"){
     error_file_dir<-paste(getwd(), "../../../data/IBKR/logs", sep = "/")
@@ -450,9 +474,10 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, port_number, tickers=NULL)
     cat("Symbol,Message,Status\n", file = log_con)
     flush(log_con)
     close(log_con)
-    tickers<-getSymbolsUniverse()
+    tickers<-getSymbolsUniverse(assetClass = asset_class)
   }
-  sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, port_number = port_number)
+  sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, 
+         port_number = port_number, asset_class = asset_class)
 }
 
 #' getTickersAsVector
