@@ -163,15 +163,22 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_cla
     # means we do not have any data locally for this ticker
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
-    if (asset_class == "Futures"){
-      remote_intraday_tibble<-getHistoricalData_futs(ticker, barSize = "1 min", duration = "12 M", whatToShow = "TRADES", error_log_file = error_log, 
-                                                     port_number = port_number)
-    } else if (asset_class == "FOREX"){
-      remote_intraday_tibble<-getHistoricalData_forex(ticker, barSize = "1 min", duration = "1 Y", whatToShow = "TRADES", error_log_file = error_log,
-                                                      port_number = port_number)
-    } else { 
-      remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, 
-                                                port_number = port_number )
+    if (toupper(asset_class) == FUTURE_ASSET_CLASS){
+      #split_IBKR_histData_req<-function(symbol, asset_class, error_log, currency = "USD", port_number = 4001, useRTH = 1, whatToShow = "TRADES", hist_len_days = 365){
+      remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = FUTURE_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 0, 
+                                                      whatToShow = "TRADES")
+      #remote_intraday_tibble<-getHistoricalData_futs(ticker, barSize = "1 min", duration = "12 M", whatToShow = "TRADES", error_log_file = error_log, 
+      #                                               port_number = port_number)
+    } else if (toupper(asset_class) == FOREX_ASSET_CLASS){
+      remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = FOREX_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 1, 
+                                                      whatToShow = "MIDPOINT")
+      #remote_intraday_tibble<-getHistoricalData_forex(ticker, barSize = "1 min", duration = "1 Y", whatToShow = "TRADES", error_log_file = error_log,
+      #                                                port_number = port_number)
+    } else {
+      remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = EQUITY_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 1, 
+                                                      whatToShow = "TRADES")
+      #remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, 
+      #                                          port_number = port_number )
     }
     if (!is.null(remote_intraday_tibble)){
       do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
@@ -354,6 +361,71 @@ when_was_mkt_open_last<-function(){
   return (last_datetime_ymd_hms)
 }
 
+#' split_IBKR_histData_req
+#'
+#' @param symbol 
+#' @param asset_class 
+#' @param currency 
+#' @param port_number 
+#' @param useRTH 
+#' @param whatToShow 
+#' @param hist_len_days 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+split_IBKR_histData_req<-function(symbol, asset_class, error_log, currency = "USD", port_number = 4001, useRTH = 1, whatToShow = "TRADES", hist_len_days = 365){
+  twsConnection <- connect2TWS(port_number = port_number)
+  if (toupper(asset_class) == FUTURE_ASSET_CLASS) {
+    contract_obj<-getFutContractObject(symbol = symbol)
+    contract_obj$sectype<-"CONTFUT"
+  } else if (toupper(asset_class) == FOREX_ASSET_CLASS) {
+    contract_obj<-getFxContractObject(symbol = symbol, currency = currency)
+  } else if (toupper(asset_class) == EQUITY_ASSET_CLASS) {
+    contract_obj<-twsEquity(symbol = symbol)
+  }
+  currentTime<-reqCurrentTime(twsConnection)
+  currentTime<-as.POSIXct(as.POSIXlt(currentTime))
+  down_counter<-seq(hist_len_days-1, 1, -1)
+  list_of_xts<-lapply(down_counter, FUN = split_helper, y = currentTime, tws_conn_obj = twsConnection, contract_obj = contract_obj, useRTH = useRTH, whatToShow = whatToShow,
+                      asset_class = asset_class, error_log = error_log, port_number = port_number)
+  result_xts<-do.call(rbind, list_of_xts)
+  disconnectTWSConn(twsConnection = twsConnection)
+  return (result_xts)
+}
+
+#' split_helper (private)
+#'
+#' @param x 
+#' @param y 
+#' @param tws_conn_obj 
+#' @param contract_obj 
+#' @param useRTH 
+#' @param whatToShow 
+#' @param asset_class 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+split_helper<-function(x, y, tws_conn_obj, contract_obj, useRTH, whatToShow, asset_class, error_log, port_number){
+  # private function
+  end_date_time<- (y-days(x))
+  end_date_time<-as.character(end_date_time, format="%Y%m%d %H:%M:%S")
+  if (toupper(asset_class) == FUTURE_ASSET_CLASS) {
+    single_day_hist_xts<-getHistoricalData_futs(contract_obj$symbol, barSize = "1 min", duration = "1 D", whatToShow = whatToShow, secType = "CONTFUT", error_log_file = error_log, 
+                           port_number = port_number, end_date_time = end_date_time)
+  } else if (toupper(asset_class) == EQUITY_ASSET_CLASS) {
+    single_day_hist_xts<-getHistoricalData(contract_obj$symbol, barSize = "1 min", duration = "1 D", whatToShow = whatToShow, error_log_file = error_log, 
+                                           port_number = port_number, end_date_time = end_date_time)
+  } else if (toupper(asset_class) == FOREX_ASSET_CLASS) {
+    single_day_hist_xts<-getHistoricalData_forex(contract_obj$symbol, contract_obj$currency, barSize = "1 min", duration = "1 D", error_log_file = error_log, 
+                                                 port_number = port_number, end_date_time = end_date_time)
+  }
+  return (single_day_hist_xts)
+}
+
 #' getSymbolsUniverse
 #' 
 #' This funciton is used to get a complete list of tickers to pull from the flat files,
@@ -372,7 +444,7 @@ getSymbolsUniverse<-function(assetClass){
     holdings_file_dir<-paste(getwd(), "..\\..\\..\\..\\data\\", sep = "\\")
   }
   fileOfFiles<-read.csv(file = theFileOfFiles, header = TRUE, sep = ",")
-  fileOfFiles<-fileOfFiles %>% filter(AssetClass == assetClass)
+  fileOfFiles<-fileOfFiles %>% filter(AssetClass == toupper(assetClass))
   fileList<-as.vector(fileOfFiles$SymbolsFileName)
   append_dir<-function(f) paste(holdings_file_dir, f, sep = "")
   list_ticker_file_paths<-sapply(fileList, FUN = append_dir)
@@ -419,7 +491,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
     cat("Symbol,Message,Status\n", file = log_con)
     flush(log_con)
     close(log_con)
-    list_of_tickers<-getSymbolsUniverse("Equities")
+    list_of_tickers<-getSymbolsUniverse(EQUITY_ASSET_CLASS)
   }
   sapply(list_of_tickers, FUN = eod_batch_av_intraday_error_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file)
   # rerun
@@ -453,7 +525,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
 #' @param tickers 
 #' @param port_number 
 #' @param error_log_file_name 
-#' @param asset_class valid options are "Equities", "Futures", "FOREX" - others may be added in the future.
+#' @param asset_class valid options are "Equities", "Futures", "FX" - others may be added in the future.
 #'
 #' @return
 #' @export
@@ -474,7 +546,7 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, asset_class, port_number, 
     cat("Symbol,Message,Status\n", file = log_con)
     flush(log_con)
     close(log_con)
-    tickers<-getSymbolsUniverse(assetClass = asset_class)
+    tickers<-getSymbolsUniverse(assetClass = toupper(asset_class))
   }
   sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, 
          port_number = port_number, asset_class = asset_class)

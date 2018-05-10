@@ -118,7 +118,7 @@ getLiveMarketData<-function(twsConnection, ticker){
 #'
 #' @examples
 getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", contractType = "E", write_out = FALSE, path_to_ticker_dir = NA, 
-                            error_log_file = NA, port_number = 4001){
+                            error_log_file = NA, port_number = 4001, end_date_time = NA){
   error_flag = FALSE
   message(paste("pulling ticker ", ticker, sep = ""))
   ibgConnection<-connect2IBG(port_number = port_number)
@@ -141,8 +141,12 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
   } else {
     message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
     contract_obj<-twsSTK(ticker, primary = primary_exch)
-    ticker_hist_data<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, 
-                                      duration = duration), error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
+    if (is.na(end_date_time))
+      ticker_hist_data<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration), 
+                                 error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
+    else 
+      ticker_hist_date<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration, endDateTime = end_date_time),
+                                 error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
     if (write_out) {
       disconnectTWSConn(ibgConnection)
       ticker_csv_file<-paste(path_to_ticker_dir, ticker, ".csv", sep = "")
@@ -165,9 +169,30 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
 #' @export
 #'
 #' @examples
-getFutContractObject<-function(symbol = 'ES'){
+getFutContractObject<-function(symbol){
   twsConnection<-connect2TWS()
   con_obj<-twsFuture(symbol = symbol, exch = "", expiry = "")
+  con_details<-reqContractDetails(twsConnection, con_obj)
+  twsContract_obj<-con_details[[1]]$contract
+  disconnectTWSConn(twsConnection)
+  return (twsContract_obj)
+}
+
+#' getFxContractObject
+#'
+#' @param symbol 
+#' @param currency 
+#' @param secType 
+#' @param exchange 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getFxContractObject<-function(symbol = "EUR", currency = "USD", secType = "CASH", exchange = "IDEALPRO"){
+  twsConnection<-connect2TWS()
+  # eg. EUR.USD is symbol = "EUR", currency = "USD"
+  con_obj<-twsCurrency(symbol = symbol, currency = base_curr)
   con_details<-reqContractDetails(twsConnection, con_obj)
   twsContract_obj<-con_details[[1]]$contract
   disconnectTWSConn(twsConnection)
@@ -192,7 +217,7 @@ getFutContractObject<-function(symbol = 'ES'){
 #'
 #' @examples
 getHistoricalData_futs<-function(symbol, barSize = "1 min", duration = '1 W', whatToShow = "TRADES", secType = "CONTFUT", write_out = FALSE, 
-                                    path_to_ticker_dir = NA, error_log_file = NA, port_number = 7496) {
+                                    path_to_ticker_dir = NA, error_log_file = NA, port_number = 7496, useRTH = 0, end_date_time = NA) {
   # continuous futures only supported on TWS Version 971 or higher, not available on IB Gateway
   error_flag = FALSE
   message(paste("pulling continuous futures ticker ", symbol, sep = ""))
@@ -201,9 +226,13 @@ getHistoricalData_futs<-function(symbol, barSize = "1 min", duration = '1 W', wh
   con_details<-reqContractDetails(twsConnection, con_obj)
   twsContract_obj<-con_details[[1]]$contract
   twsContract_obj$sectype<-secType
-  symbol_hist_data<-tryCatch(reqHistoricalData(twsConnection, twsContract_obj, whatToShow = whatToShow, barSize = barSize, 
-                                               duration = duration), error = function(e) {message(paste(symbol, "Failed", sep = ",")); 
-                                                 write_error_log(ticker, error_log_file)})
+  if (is.na(end_date_time))
+    symbol_hist_data<-tryCatch(reqHistoricalData(twsConnection, twsContract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration, useRTH = useRTH), 
+                               error = function(e) {message(paste(symbol, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
+  else 
+    symbol_hist_data<-tryCatch(reqHistoricalData(twsConnection, twsContract_obj, whatToShow = whatToShow, barSize = barSize, endDateTime = end_date_time,
+                                                 duration = duration, useRTH = useRTH), error = function(e) {message(paste(symbol, "Failed", sep = ",")); 
+                                                   write_error_log(ticker, error_log_file)})
   if (write_out) {
     disconnectTWSConn(twsConnection)
     symbol_csv_file<-paste(path_to_ticker_dir, symbol, ".csv", sep = "")
@@ -212,6 +241,49 @@ getHistoricalData_futs<-function(symbol, barSize = "1 min", duration = '1 W', wh
   } else {
     disconnectTWSConn(twsConnection)
     return(symbol_hist_data)
+  }
+}
+
+#' getHistoricalData_forex
+#'
+#' @param symbol transaction (numerator) currency
+#' @param currency base (denomincator) currency
+#' @param barSize 
+#' @param duration 
+#' @param whatToShow 
+#' @param secType 
+#' @param write_out 
+#' @param path_to_ticker_dir 
+#' @param error_log_file 
+#' @param port_number 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getHistoricalData_forex<-function(symbol, currency, barSize = "1 min", duration = '1 W', whatToShow = "MIDPOINT", secType = "CASH", write_out = FALSE,
+                                  path_to_ticker_dir = NA, error_log_file = NA, port_number = 7496, end_date_time = NA){
+  error_flag = FALSE
+  message(paste("pulling FOREX ticker ", symbol, sep = ""))
+  twsConnection<-connect2TWS(port_number = port_number)
+  con_obj<-twsCurrency(symbol = symbol, currency = currency)
+  con_details<-reqContractDetails(twsConnection, con_obj)
+  twsContract_obj<-con_details[[1]]$contract
+  twsContract_obj$sectype<-secType
+  if (is.na(end_date_time))
+    symbol_hist_data <- tryCatch(reqHistoricalData(twsConnection, twsContract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration), 
+                                 error = function(e) {message(paste(symbol, "FAILED", sep = ",")); write_error_log(ticker, error_log_file)})
+  else
+    symbol_hist_date <- tryCatch(reqHistoricalData(twsConnection, twsContract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration, endDateTime = end_date_time), 
+                                 error = function(e) {message(paste(symbol, "FAILED", sep = ",")); write_error_log(ticker, error_log_file)})
+  if (write_out) {
+    disconnectTWSConn(twsConnection)
+    symbol_csv_file<-paste(path_to_ticker_Dir, symbol, ".csv", sep = "")
+    tryCatch(write.zoo(as.xts(symbol_hist_data), symbol_csv_file, index.name = "Date", sep = ","), error = function(e) {
+      message(paste(symbol, "write to csv failed", sep = " "))})
+  } else {
+    disconnectTWSConn(twsConnection)
+    return (symbol_hist_data)
   }
 }
 
