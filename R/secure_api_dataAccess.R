@@ -423,6 +423,7 @@ split_helper<-function(x, y, tws_conn_obj, contract_obj, useRTH, whatToShow, ass
     single_day_hist_xts<-getHistoricalData_forex(contract_obj$symbol, contract_obj$currency, barSize = "1 min", duration = "1 D", error_log_file = error_log, 
                                                  port_number = port_number, end_date_time = end_date_time)
   }
+  Sys.sleep(20)
   return (single_day_hist_xts)
 }
 

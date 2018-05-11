@@ -53,6 +53,20 @@ simulate<-function(ticker, sim_size, mean_log_return, sd_log_return, xts_obj = N
   return (price_sim)
 }
 
+#' monte_carlo
+#'
+#' @param ticker 
+#' @param sim_size 
+#' @param mc_runs 
+#' @param mean_log_return 
+#' @param sd_log_return 
+#' @param xts_obj 
+#' @param price_type 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 monte_carlo<-function(ticker, sim_size, mc_runs, mean_log_return, sd_log_return, xts_obj = NULL, price_type = "Adjusted"){
   N<-sim_size
   M<-mc_runs
@@ -86,12 +100,32 @@ monte_carlo<-function(ticker, sim_size, mc_runs, mean_log_return, sd_log_return,
   return (price_sim)
 }
 
+#' plot_monte_carlo
+#'
+#' @param ticker 
+#' @param price_sim 
+#' @param sim_size 
+#' @param mc_runs 
+#' @param title 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 plot_monte_carlo<-function(ticker, price_sim, sim_size, mc_runs, title = "Monte Carlo Simulation Plot"){
   title<-paste(ticker, ": ", mc_runs, " Monte Carlo Simulation for Prices Over ", sim_size, " Trading Days", sep = "")
   price_sim %>% ggplot(aes(x = T_t, y = Stock.Price, Group = Simulation)) + 
     geom_line(alpha = 0.1) + ggtitle(title)
 }
 
+#' monte_carlo_return_dist
+#'
+#' @param price_sim 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 monte_carlo_return_dist<-function(price_sim){
   end_of_sim_prices<-price_sim %>% filter(T_t == max(T_t))
   probs<-c(0.005, 0.025, 0.25, 0.5, 0.75, 0.975, .995)
@@ -99,6 +133,18 @@ monte_carlo_return_dist<-function(price_sim){
   return (dist_end_stock_prices %>% round(2) )
 }
 
+#' plot_simulation
+#'
+#' @param ticker 
+#' @param simulation 
+#' @param sim_size 
+#' @param price 
+#' @param title 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 plot_simulation<-function(ticker, simulation, sim_size, price, title="Single Simulation Plot"){
   title<-paste(ticker, ": Simulated Prices for ", sim_size, " Trading Periods" )
   sim_num <- 1:sim_size
@@ -126,6 +172,16 @@ plot_log_returns_histogram<-function(ticker, price_type_func = "Ad", num_bins = 
     geom_rug(alpha=alpha)
 }
 
+#' get_log_returns
+#'
+#' @param ticker 
+#' @param xts_obj 
+#' @param price_type_func 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 get_log_returns<-function(ticker, xts_obj = NULL, price_type_func = "Ad"){
   if (is.null(xts_obj)){
     xts_obj<-get(ticker)
@@ -134,4 +190,3 @@ get_log_returns<-function(ticker, xts_obj = NULL, price_type_func = "Ad"){
   names(log_returns) <-paste(ticker, ".Log.Returns", sep = "")
   return(log_returns)
 }
-

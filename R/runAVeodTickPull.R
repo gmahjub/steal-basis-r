@@ -6,11 +6,22 @@ library(tidyquant)
 library(alphavantager)
 library(IBrokers)
 library(timetk)
-source('~/workspace/stealthebasis/Rsrc/RstealBasis/R/secure_api_dataAccess.R')
-source('~/workspace/stealthebasis/Rsrc/RstealBasis/R/extend_IBrokers.R')
-source('~/workspace/stealthebasis/Rsrc/RstealBasis/R/write_intraday_av.R')
-source('~/workspace/stealthebasis/Rsrc/RstealBasis/R/local_data_access.R')
-eod_batch_av_intraday("/Users/traderghazy/workspace/data/alphavantage/intraday/stock.prices/", 
-                      "/Users/traderghazy/workspace/data/ghazy_mahjub_api_keys.csv")
+
+if (Sys.info()['sysname'] == "Darwin") {
+  source(paste(getwd(), 'R/write_intraday_av.R', sep = "/"))
+  source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
+  source(paste(getwd(), 'R/extend_IBrokers.R', sep = "/"))
+  source(paste(getwd(), 'R/local_data_access.R', sep = "/"))
+  path_to_api_key_file<-paste(getwd(), '../../../data/ghazy_mahjub_api_keys.csv', sep = "/")
+  stock_prices_dir<-paste(getwd(), '../../../data/alphavantage/intraday/stock.prices/', sep = "/")
+} else {
+  source(paste(getwd(), 'R/write_intraday_av.R', sep = "/"))
+  source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
+  source(paste(getwd(), 'R/extend_IBrokers.R', sep = "/"))
+  source(paste(getwd(), 'R/local_data_access.R', sep = "/"))
+  path_to_api_key_file<-paste(getwd(), '..\\..\\..\\..\\data\\ghazy_mahjub_api_keys.csv', sep = "\\")
+  stock_prices_dir<-paste(getwd(), '..\\..\\..\\..\\data\\alphavantage\\intraday\\stock.prices\\', sep = "\\")
+}
+eod_batch_av_intraday(path_to_ticker_dir = stock_prices_dir, path_to_api_key_file = path_to_api_key_file)
 
 
