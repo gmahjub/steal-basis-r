@@ -29,6 +29,8 @@ dependencies <- c(
   "corrr"
   )
 
+## install packages that are not currently installed.
+
 new.packages <- dependencies[!(dependencies %in% installed.packages()[, "Package"])] # get list of installed packages
 if(length(new.packages)>0) {
   install.packages(new.packages)
@@ -45,3 +47,26 @@ sourceDir <- function(path, trace = TRUE, ...){
 }
 
 rm(dependencies, new.packages)
+
+## set some variables that are commonly used, based on system we are running on (MAC or windows)
+
+if (Sys.info()['sysname'] == "Darwin"){
+  source(paste(getwd(), 'R/write_ticker_csv.R', sep = "/"))
+  source(paste(getwd(), 'R/extend_yahoo_quantmod.R', sep = "/"))
+  source(paste(getwd(), 'R/extend_av_quantmod.R', sep = "/"))
+  source(paste(getwd(), 'R/local_data_access.R', sep = "/"))
+  source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
+  api_key_file<-paste(getwd(), "../../../data/ghazy_mahjub_api_keys.csv", sep = "/")
+  yahoo_stock_prices_dir<-paste(getwd(), "../../../data/yahoo/", sep = "/")
+  av_stock_prices_dir<-paste(getwd(), "../../../data/alphavantage/", sep = "/")
+} else {
+  source(paste(getwd(), 'R/write_ticker_csv.R', sep = "/"))
+  source(paste(getwd(), 'R/extend_yahoo_quantmod.R', sep = "/"))
+  source(paste(getwd(), 'R/extend_av_quantmod.R', sep = "/"))
+  source(paste(getwd(), 'R/local_data_access.R', sep = "/"))
+  source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
+  api_key_file<-paste(getwd(), "..\\..\\..\\..\\data\\ghazy_mahjub_api_keys.csv", sep = "\\")
+  yahoo_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\yahoo\\", sep = "\\")
+  av_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\daily\\", sep ="\\")
+}
+start_date<-"2017-01-01"

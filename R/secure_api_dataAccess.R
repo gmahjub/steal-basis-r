@@ -44,6 +44,21 @@ set_quandl_api_key<-function(api_key_file){
   quandl_api_key(get_api_key(api_key_file, vendor = "QUANDL"))
 }
 
+#' set_riingo_api_key
+#' 
+#' sets the riingo api key within the riingo library api so that data can be
+#' pulled form the riingo remote repository.
+#'
+#' @param api_key_file 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+set_riingo_api_key<-function(api_key_file){
+  riingo_set_token(get_api_key(api_key_file, vendor = "TIINGO"))
+}
+
 #' get_intraday_data_alphavantager
 #'
 #' Calls the av_get method of the alphavantage api and specifies the intraday
