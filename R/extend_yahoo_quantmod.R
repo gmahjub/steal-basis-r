@@ -146,8 +146,10 @@ getYahooDaily_xts<-function(ticker, yahoo_stock_prices_dir, from_date = "2007-01
     if (difftime(last_modified, as.POSIXct(cut_off_time)) > as.difftime(-24, units = "hours")){
       message(paste(ticker, ".csv file is up to date, pulling local...", sep = ""))
       yahoo_daily_xts<-as.xts(read.zoo(path_to_file, header = TRUE, sep = ",", 
-                                       colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer", "numeric", "numeric")))
-      return (yahoo_daily_xts)
+                                       colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric")))
+      to_date<-index(yahoo_daily_xts[nrow(yahoo_daily_xts)])
+      subset_yahoo_xts(ticker, from = from_date, to = to_date, xts_obj = yahoo_daily_xts)
+      return (get(ticker))
     } else {
       message(paste(ticker, ".csv file not up to date, going remote...", sep = ""))
       yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE )
@@ -160,8 +162,25 @@ getYahooDaily_xts<-function(ticker, yahoo_stock_prices_dir, from_date = "2007-01
   }
 }
 
-subset_yahoo_xts<-function(ticker, from, to){
-  the_xts<-get(ticker)
+#' subset_yahoo_xts
+#' 
+#' Subset the xts object passed in or represented by the ticker
+#' based on from and to dates.
+#'
+#' @param ticker 
+#' @param from 
+#' @param to 
+#' @param xts_obj 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+subset_yahoo_xts<-function(ticker, from, to, xts_obj = NULL){
+  if (is.null(xts_obj))
+    the_xts<-get(ticker)
+  else
+    the_xts<-xts_obj
   fromTo<-paste(from, to, sep = "/")
   the_xts<-the_xts[fromTo]
   do.call("<<-", list(ticker, the_xts))

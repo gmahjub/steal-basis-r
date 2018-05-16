@@ -1,20 +1,63 @@
-calc_quantiles<-function(x, probs = c(0.005, 0.025, 0.25, 0.5, 0.75, 0.975, 0.995)){
-  y <- x %>% quantile(probs = probs, na.rm = TRUE)
+#' calc_quantiles
+#'
+#' @param log_returns
+#' @param probs 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_quantiles<-function(log_returns, probs = c(0.005, 0.025, 0.25, 0.5, 0.75, 0.975, 0.995)){
+  y <- log_returns %>% quantile(probs = probs, na.rm = TRUE)
   return (y)
 }
 
+#' mean_log_returns
+#' 
+#' Return mean of log returns
+#'
+#' @param log_returns 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 mean_log_returns<-function(log_returns){
   mean_log_returns <- mean(log_returns, na.rm = TRUE)
   return (mean_log_returns)
 }
 
+#' sd_log_returns
+#' 
+#' Return standard deviation of log returns
+#'
+#' @param log_returns 
+#'
+#' @return
+#' @export
+#'
+#' @examples
 sd_log_returns<-function(log_returns){
   sd_log_returns <- sd(log_returns, na.rm = TRUE)
   return (sd_log_returns)
 }
 
+#' log2realReturns
+#' 
+#' The input log_returns could be a series or it could a single value.
+#' Returned is a percentage value, average daily real return.
+#' Can be a neg/pos number.
+#'
+#' @param log_returns 
+#'
+#' @return real return, in percent
+#' @export
+#'
+#' @examples
 log2realReturns<-function(log_returns){
-  return (log_returns %>% exp())
+  real_rets<-log_returns %>% exp()
+  real_rets <- (real_rets - 1)*100.0
+  return (real_rets)
 }
 
 #' simulate
@@ -49,8 +92,28 @@ simulate<-function(ticker, sim_size, mean_log_return, sd_log_return, xts_obj = N
     price[i] <- price[i-1] * exp(rnorm(1, mean_log_return, sd_log_return))
   }
   price_sim <- cbind(sim_num, price) %>% as_tibble()
-  # visualize
-  return (price_sim)
+  ret_list<-list(price = price, price_sim = price_sim)
+  return (ret_list)
+}
+
+#' plot_simulation
+#'
+#' @param ticker 
+#' @param simulation 
+#' @param sim_size 
+#' @param price 
+#' @param title 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+plot_simulation<-function(ticker, simulation, sim_size, price, title="Single Simulation Plot"){
+  title<-paste(ticker, ": Simulated Prices for ", sim_size, " Trading Periods" )
+  sim_num <- 1:sim_size
+  simulation %>% ggplot(aes(sim_num, price )) +
+    geom_line() +
+    ggtitle(str_c(title))
 }
 
 #' monte_carlo
@@ -133,24 +196,33 @@ monte_carlo_return_dist<-function(price_sim){
   return (dist_end_stock_prices %>% round(2) )
 }
 
-#' plot_simulation
-#'
+#' calc_CAGR
+#' 
+#' Calculate historical and simulation CAGR (Compound Annual Growth Rate)
+#' Historic CAGR is calcualted strictly from the data.
+#' Simulated is calculated from the Median of the MC Simulation distribution.
+#' 
 #' @param ticker 
-#' @param simulation 
-#' @param sim_size 
-#' @param price 
-#' @param title 
+#' @param num_time_periods_to_simulate 
+#' @param mc_return_dist 
 #'
 #' @return
 #' @export
 #'
 #' @examples
-plot_simulation<-function(ticker, simulation, sim_size, price, title="Single Simulation Plot"){
-  title<-paste(ticker, ": Simulated Prices for ", sim_size, " Trading Periods" )
-  sim_num <- 1:sim_size
-  simulation %>% ggplot(aes(sim_num, price )) +
-    geom_line() +
-    ggtitle(str_c(title))
+calc_CAGR <- function(ticker, num_time_periods_to_simulate, mc_return_dist){
+  N_hist<-nrow(get(ticker)) / 252
+  p_start_hist<-Ad(get(ticker))[[1]]
+  p_end_hist<-Ad(get(ticker))[[nrow(get(ticker))]]
+  N_sim<- (num_time_periods_to_simulate / 252)
+  p_start_sim<-p_end_hist
+  # the 50% of the monte carlo simulation result distribution
+  p_end_sim<-mc_return_dist[[4]]
+  # CAGR calculations
+  CAGR_historical <- (p_end_hist / p_start_hist) ^ (1 / N_hist) - 1
+  CAGR_sim <- (p_end_sim / p_start_sim) ^ (1 / N_sim) - 1
+  CAGR_res <- list(CAGR_Historical = CAGR_historical, CAGR_Sim = CAGR_sim)
+  return (CAGR_res)
 }
 
 #' plot_log_returns_hist
