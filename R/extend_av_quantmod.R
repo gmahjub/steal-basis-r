@@ -42,8 +42,11 @@ av_Main_retrieve_and_write<-function(tickers, path_to_ticker_dir, api_key_file, 
 #' @export
 #'
 #' @examples
-subset_av_xts<-function(ticker, from, to){
-  the_xts<-get(ticker)
+subset_av_xts<-function(ticker, from, to, xts_obj = NULL){
+  if (is.null(xts_obj))
+    the_xts<-get(ticker)
+  else
+    the_xts<-xts_obj
   fromTo<-paste(from, to, sep = "/")
   the_xts<-the_xts[fromTo]
   do.call("<<-", list(ticker, the_xts))
@@ -68,8 +71,10 @@ getAvDaily_xts<-function(ticker, path_to_ticker_dir, api_key_file, from_date = "
     if (difftime(last_modified, as.POSIXct(cut_off_time)) > as.difftime(-24, units = "hours")){
       message(paste(ticker, ".csv file is up to date, pulling local...", sep = ""))
       av_daily_xts<-as.xts(read.zoo(path_to_file, header = TRUE, sep = ",", 
-                                       colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer", "numeric", "numeric")))
-      return (av_daily_xts)
+                                       colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric")))
+      to_date<-index(av_daily_xts[nrow(av_daily_xts)])
+      subset_av_xts(ticker, from = from_date, to = to_date, xts_obj = yahoo_daily_xts)
+      return (get(ticker))
     } else {
       message(paste(ticker, ".csv file not up to date, going remote...", sep = ""))
       av_Main_retrieve_and_write(ticker, path_to_ticker_dir, api_key_file, start_date = from_date, end_date = Sys.Date(), write_file = TRUE )

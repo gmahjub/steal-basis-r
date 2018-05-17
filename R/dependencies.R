@@ -26,7 +26,8 @@ dependencies <- c(
   "rpart",
   "rpart.plot",
   "mosaic",
-  "corrr"
+  "corrr",
+  "plotly"
   )
 
 ## install packages that are not currently installed.
@@ -70,3 +71,4 @@ if (Sys.info()['sysname'] == "Darwin"){
   av_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\daily\\", sep ="\\")
 }
 start_date<-"2017-01-01"
+reserved_R_strings <-c("T", "F", "NA", "NULL", "C")

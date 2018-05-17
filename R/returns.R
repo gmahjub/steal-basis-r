@@ -16,13 +16,23 @@
 #' @export
 #'
 #' @examples
-get_daily_log_returns<-function(tibble_obj){
-  daily_returns<-tibble_obj %>% group_by(symbol) %>% tq_transmute(select=adjusted,
-                                                                  mutate_fun = periodReturn,
-                                                                  period="daily",
-                                                                  type="log",
-                                                                  col_rename = "DailyLog.return")
+get_idx_component_daily_log_returns<-function(tibble_obj, period = "daily"){
+  daily_returns <- tibble_obj %>% group_by(symbol) %>% tq_transmute(select=adjusted,
+                                                                    mutate_fun = periodReturn,
+                                                                    period=period,
+                                                                    type="log",
+                                                                    col_rename = "Log.Returns")
   return(daily_returns)
+}
+
+get_daily_log_returns<-function(tibble_obj, period = "daily"){
+  names(tibble_obj) <- c("Date", "open", "high", "low", "close", "volume", "adjusted", "adjdiff")
+  daily_returns<-tibble_obj %>% tq_transmute(select = adjusted,
+                                             mutate_fun = periodReturn,
+                                             period=period,
+                                             type = "log",
+                                             col_rename = "Log.Returns")
+  return (daily_returns)
 }
 
 #' get_period_high_to_next_period_low_return
