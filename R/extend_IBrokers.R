@@ -145,7 +145,7 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
       ticker_hist_data<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration), 
                                  error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
     else 
-      ticker_hist_date<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration, endDateTime = end_date_time),
+      ticker_hist_data<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration, endDateTime = end_date_time),
                                  error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
     if (write_out) {
       disconnectTWSConn(ibgConnection)
