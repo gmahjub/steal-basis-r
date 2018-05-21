@@ -7,6 +7,10 @@ library(alphavantager)
 library(IBrokers)
 library(timetk)
 
+FUTURE_ASSET_CLASS<-"FUTURES"
+EQUITY_ASSET_CLASS<-"EQUITIES"
+FOREX_ASSET_CLASS<-"FX"
+
 if (Sys.info()['sysname'] == "Darwin") {
   source(paste(getwd(), 'R/write_intraday_av.R', sep = "/"))
   source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
