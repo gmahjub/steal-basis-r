@@ -147,6 +147,7 @@ adjustOHLC_wrapper<-function(tickers){
 
 adjustOHLC_yahoo<-function(ticker, xts_obj, columnNames = NULL){
   if (!is.null(columnNames)){
+    message(paste("columnNames: ", columnNames, sep=""))
     names(xts_obj) <- make.names(columnNames)
   } else {
     columnNames <- c(names(xts_obj))
@@ -203,7 +204,16 @@ getHistoricalData_yahoo<-function(ticker, yahoo_stock_prices_dir, start_date = "
   path_to_ticker_dir<-yahoo_stock_prices_dir
   reserved_R_keywords <- c('C', 'T', 'F', 'NA', 'NULL')
   reserved_pxType_keywords <- c("OPEN", "HIGH", "LOW", "CLOSE", "VOLUME", "ADJUSTED")
-  R_incompat_tickers<-c("BRK.B")
+  #shitty hack.
+  if (ticker == "BRK.B"){
+    ticker <- "BRK-B"
+  }
+  if (ticker == "CCL.U"){
+    ticker <- "CCL"
+  }
+  if (ticker == "BF.B"){
+    ticker <- "BF-B"
+  }
   if(ticker %in% reserved_R_keywords){
     modified_ticker <- paste(ticker, ".", ticker, sep='')
     xts_obj<-getSymbols(ticker, from=start_date, to=end_date, auto.assign = FALSE)
@@ -213,7 +223,7 @@ getHistoricalData_yahoo<-function(ticker, yahoo_stock_prices_dir, start_date = "
       new_col_name <- paste(ticker, ".", name, sep='')
       vec_new_col_nm<-c(vec_new_col_nm, new_col_name)
     }
-    vec_new_col_nm<-c(vec_new_col_nm, paste(modified_ticker, 'AdjDiff', sep = "."))
+    #vec_new_col_nm<-c(vec_new_col_nm, paste(modified_ticker, 'AdjDiff', sep = "."))
     xts_obj<-adjustOHLC_yahoo(ticker, xts_obj, columnNames = vec_new_col_nm)
     if (do_write){
       write_ticker_csv(modified_ticker, path_to_ticker_dir, xts_obj = xts_obj, column_names = NULL)
