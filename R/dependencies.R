@@ -27,6 +27,7 @@ dependencies <- c(
   "rpart.plot",
   "mosaic",
   "corrr",
+  "XLConnect",
   "plotly"
   )
 

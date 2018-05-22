@@ -12,12 +12,13 @@
 #' @export
 #'
 #' @examples
-write_ticker_csv <- function(ticker, path_to_ticker_dir, column_names=NULL) {
+write_ticker_csv <- function(ticker, path_to_ticker_dir, xts_obj = NULL, column_names=NULL) {
   path <- path_to_ticker_dir
   ticker_csv_file <- paste(path, ticker, ".csv", sep="")
-  stuff_to_write <<- get(ticker, envir=parent.frame())
-  #print (stuff_to_write)
-  #message(paste("in write_ticker_csv, column_names is...", column_names, sep = ""))
+  if (is.null(xts_obj))
+    stuff_to_write <<- get(ticker, envir=parent.frame())
+  else
+    stuff_to_write <<- xts_obj
   if (!is.null(column_names)){
     colnames(stuff_to_write)<<-make.names(names=column_names)
   }

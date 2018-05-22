@@ -16,7 +16,7 @@
 #' @export
 #'
 #' @examples
-check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2007-01-01", end_date = Sys.Date(), write_file = FALSE) {
+check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2007-01-01", end_date = Sys.Date(), do_write = FALSE) {
   # example path below
   changed_ticker<-NA
   require(stringr)
@@ -32,7 +32,7 @@ check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2
     }
     changed_ticker<-ticker
     adjustOHLC_wrapper(m)
-    if (write_file){
+    if (do_write){
       write_ticker_csv(m, path_to_ticker_dir, column_names = NULL)
       #write_ticker_csv(m, path_to_ticker_dir, column_names=vec_new_col_nm)
     }
@@ -49,9 +49,34 @@ check_Rcompat_ticker_names <- function(ticker, path_to_ticker_dir, start_date="2
     }
     changed_ticker<-ticker
     adjustOHLC_wrapper(m)
-    if (write_file){
+    if (do_write){
       write_ticker_csv(m, path_to_ticker_dir, column_names = NULL)
       #write_ticker_csv(m, path_to_ticker_dir, column_names = vec_new_col_nm)
+    }
+  }
+  ## adding this on 5/20/2018 while putting together Batch MC Simulation
+  ticker_confused_with_px_type <- c('OPEN', 'HIGH', 'LOW', 'CLOSE', 'VOLUME')
+  if (ticker %in% ticker_confused_with_px_type){
+    message("ticker can be confused with px type...encoding ticker...")
+    #m <- paste(ticker, "symbol", sep="")
+    m<-ticker
+    do.call("<<-", list(m, get(getSymbols(ticker, from =start_date, to=end_date))))
+    col_names<-colnames(get(m))
+    vec_new_col_nm<-c()
+    for (name in col_names){
+      name_tokens<-stringr::str_split(name, "\\.")
+      new_col_name <- paste("LOU", "symbol.", unlist(name_tokens)[2], sep = "")
+      vec_new_col_nm<-c(vec_new_col_nm, new_col_name)
+    }
+    xts_obj<-get(m)
+    colnames(xts_obj) <- make.names(names=vec_new_col_nm)
+    do.call("<<-", list(m, xts_obj))
+    #message(paste("new col names ", vec_new_col_nm, sep = ""))
+    changed_ticker<-ticker
+    adjustOHLC_wrapper(m)
+    if (do_write){
+      #write_ticker_csv(m, path_to_ticker_dir, column_names = NULL)
+      write_ticker_csv(m, path_to_ticker_dir, column_names = vec_new_col_nm)
     }
   }
   return(changed_ticker)
@@ -88,10 +113,19 @@ adjustOHLC_wrapper<-function(tickers){
       retrieved_ticker<-unlist(str_split(ticker, pattern = fixed(".")))[1]
       dividends<-getDividends(retrieved_ticker)
     }
+    else if (str_detect(string=ticker, pattern=fixed("symbol"))){
+      message("extract ticker from ticker<symbol>...")
+      col_names<-c(colnames(get(ticker)), paste(ticker, "AdjDiff", sep = "."))
+      retrieved_ticker<-unlist(str_split(ticker, patter = fixed("symbol")))[1]
+      message(paste("retrieved ticker is ", retrieved_ticker, sep = ""))
+      dividends<-getDividends(retrieved_ticker)
+    }
     else {
       col_names<-c(colnames(get(ticker)), paste(ticker, "AdjDiff", sep = "."))
       dividends<-getDividends(ticker)
     }
+    message(paste("pulling the object from this ticker ", ticker, sep = ""))
+    message(colnames(get(ticker)))
     ratios<-adjRatios(dividends = dividends, close = Cl(get(ticker)))
     cl_price<-Cl(get(ticker))
     op_price<-Op(get(ticker))
@@ -104,10 +138,37 @@ adjustOHLC_wrapper<-function(tickers){
     sanity_check<-(adjusted_cl/Ad(get(ticker)) - 1)*100.0
     adjusted_data<-cbind(adjusted_op, adjusted_hi, adjusted_lo, adjusted_cl, Vo(get(ticker)), Ad(get(ticker)), sanity_check)
     adjusted_data<-na.omit(adjusted_data)
+    message(paste("the var col_names is ", col_names, sep = ""))
     names(adjusted_data) <- col_names
     do.call("<<-", list(ticker, adjusted_data))
     message("finished with adjustOHLC_wrapper...")
   }
+}
+
+adjustOHLC_yahoo<-function(ticker, xts_obj, columnNames = NULL){
+  if (!is.null(columnNames)){
+    names(xts_obj) <- make.names(columnNames)
+  } else {
+    columnNames <- c(names(xts_obj))
+  }
+  dividends<-getDividends(ticker)
+  ratios<-adjRatios(dividends = dividends, close = Cl(xts_obj))
+  cl_price<-Cl(xts_obj)
+  op_price<-Op(xts_obj)
+  hi_price<-Hi(xts_obj)
+  lo_price<-Lo(xts_obj)
+  ad_price<-Ad(xts_obj)
+  adjusted_cl<-cl_price*ratios[,"Div"]
+  adjusted_op<-op_price*ratios[,"Div"]
+  adjusted_hi<-hi_price*ratios[,"Div"]
+  adjusted_lo<-lo_price*ratios[,"Div"]
+  sanity_check<-(adjusted_cl/ad_price - 1)*100.0
+  adjusted_data<-cbind(adjusted_op, adjusted_hi, adjusted_lo, adjusted_cl, Vo(xts_obj), Ad(xts_obj), sanity_check)
+  adjusted_data<-na.omit(adjusted_data)
+  col_name_prefix<-unlist(str_split(columnNames[1], pattern = fixed(".")))[1]
+  columnNames<-c(columnNames, paste(col_name_prefix, 'AdjDiff', sep = "."))
+  names(adjusted_data)<-make.names(columnNames)
+  return(adjusted_data)
 }
 
 #' yahoo_Main_retrieve_and_write
@@ -122,20 +183,78 @@ adjustOHLC_wrapper<-function(tickers){
 #' @export
 #'
 #' @examples
-yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2007-01-01", end_date = Sys.Date(), write_file = TRUE){
+yahoo_Main_retrieve_and_write<-function(tickers, yahoo_stock_prices_dir, start_date="2007-01-01", end_date = Sys.Date(), do_write = TRUE){
   path_to_ticker_dir <- yahoo_stock_prices_dir
-  list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names, path_to_ticker_dir, start_date=start_date, end_date = end_date, write_file=write_file)
+  list_of_changed_tickers<-sapply(tickers, FUN=check_Rcompat_ticker_names, path_to_ticker_dir, start_date=start_date, end_date = end_date, do_write=do_write)
   list_of_changed_tickers<-list_of_changed_tickers[!is.na(list_of_changed_tickers)]
   tickers<-setdiff(tickers, list_of_changed_tickers)
   for (ticker in tickers){do.call("<<-", list(ticker, get(getSymbols(ticker, from=start_date))))}
   adjustOHLC_wrapper(tickers)
   lapply(ticker, subset_yahoo_xts, from = start_date, to = end_date)
-  if (write_file) {
+  if (do_write) {
     lapply(tickers, FUN=write_ticker_csv, path_to_ticker_dir = path_to_ticker_dir)
   }
   ## there is a known bug in here, we do not include in this list the tickers that had to be changed due to R incompaitibility
   ## GM - 2/6/2018
   return(tickers)
+}
+
+getHistoricalData_yahoo<-function(ticker, yahoo_stock_prices_dir, start_date = "2007-01-01", end_date = Sys.Date(), do_write = TRUE){
+  path_to_ticker_dir<-yahoo_stock_prices_dir
+  reserved_R_keywords <- c('C', 'T', 'F', 'NA', 'NULL')
+  reserved_pxType_keywords <- c("OPEN", "HIGH", "LOW", "CLOSE", "VOLUME", "ADJUSTED")
+  R_incompat_tickers<-c("BRK.B")
+  if(ticker %in% reserved_R_keywords){
+    modified_ticker <- paste(ticker, ".", ticker, sep='')
+    xts_obj<-getSymbols(ticker, from=start_date, to=end_date, auto.assign = FALSE)
+    col_names<-colnames(xts_obj)
+    vec_new_col_nm<-c()
+    for (name in col_names){
+      new_col_name <- paste(ticker, ".", name, sep='')
+      vec_new_col_nm<-c(vec_new_col_nm, new_col_name)
+    }
+    vec_new_col_nm<-c(vec_new_col_nm, paste(modified_ticker, 'AdjDiff', sep = "."))
+    xts_obj<-adjustOHLC_yahoo(ticker, xts_obj, columnNames = vec_new_col_nm)
+    if (do_write){
+      write_ticker_csv(modified_ticker, path_to_ticker_dir, xts_obj = xts_obj, column_names = NULL)
+    }
+  } else if (ticker %in% reserved_pxType_keywords) {
+    # we will use the ananym of the ticker
+    ticker_ananym<-strsplit(ticker, NULL)[[1]] %>% rev() %>% paste(., collapse = '')
+    ticker_ananym<-paste(ticker_ananym, "ananym", sep = "")
+    xts_obj<-getSymbols(ticker, from=start_date, to=end_date, auto.assign = FALSE)
+    col_names<-colnames(xts_obj)
+    vec_new_col_nm<-c()
+    for (name in col_names){
+      px_type<-unlist(str_split(name, pattern = fixed(".")))[2]
+      new_col_name <- paste(ticker_ananym, px_type, sep = ".")
+      vec_new_col_nm<-c(vec_new_col_nm, new_col_name)
+    }
+    xts_obj<-adjustOHLC_yahoo(ticker, xts_obj, columnNames = vec_new_col_nm)
+    if (do_write){
+      write_ticker_csv(ticker, path_to_ticker_dir, xts_obj = xts_obj, column_names = NULL)
+    }
+  } else if (str_detect(string=ticker, pattern=fixed("-"))) {
+    m <- str_replace(string=ticker, pattern=fixed("-"), replacement="_")
+    xts_obj<-getSymbols(ticker, from=start_date, to=end_date, auto.assign = FALSE)
+    col_names<-colnames(xts_obj)
+    vec_new_col_nm<-c()
+    for(name in col_names){
+      new_col_name <-str_replace(string=name, pattern=fixed("-"), replacement="_")
+      vec_new_col_nm<-c(vec_new_col_nm, new_col_name)
+    }
+    xts_obj<-adjustOHLC_yahoo(ticker, xts_obj, columnNames = vec_new_col_nm)
+    if (do_write){
+      write_ticker_csv(ticker, path_to_ticker_dir, xts_obj = xts_obj, column_names = NULL)
+    }
+  } else {
+    xts_obj<-getSymbols(ticker, from=start_date, to=end_date, auto.assign = FALSE)
+    xts_obj<-adjustOHLC_yahoo(ticker, xts_obj)
+    if (do_write){
+      write_ticker_csv(ticker, path_to_ticker_dir, xts_obj = xts_obj, column_names = NULL)
+    }
+  }
+  return (xts_obj)
 }
 
 #' getYahooDaily_xts
@@ -164,41 +283,31 @@ getYahooDaily_xts<-function(ticker, yahoo_stock_prices_dir, from_date = "2007-01
       yahoo_daily_xts<-as.xts(read.zoo(path_to_file, header = TRUE, sep = ",", 
                                        colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric")))
       to_date<-index(yahoo_daily_xts[nrow(yahoo_daily_xts)])
-      subset_yahoo_xts(ticker, from = from_date, to = to_date, xts_obj = yahoo_daily_xts)
+      yahoo_daily_xts<-subset_yahoo_xts(ticker, from = from_date, to = to_date, xts_obj = yahoo_daily_xts)
       if (return_format == "tibble"){
-        the_tibble<-convertYahoo_xts2tibble(ticker)
+        the_tibble<-convertYahoo_xts2tibble(ticker, yahoo_daily_xts)
         return (the_tibble)
       }
-      return (get(ticker))
+      return (yahoo_daily_xts)
     } else {
       message(paste(ticker, ".csv file not up to date, going remote...", sep = ""))
-      if (ticker == "BRK.B")
-        yahoo_Main_retrieve_and_write("BRK-B", yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
-      else
-        yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE )
+      yahoo_daily_xts<-getHistoricalData_yahoo(ticker, yahoo_stock_prices_dir = yahoo_stock_prices_dir, start_date=from_date, end_date = Sys.Date(), do_write = TRUE)
+      #yahoo_Main_retrieve_and_write("BRK-B", yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), do_write = TRUE)
       if (return_format == "tibble"){
-        the_tibble <- convertYahoo_xts2tibble(ticker)
+        the_tibble <- convertYahoo_xts2tibble(ticker, xts_obj = yahoo_daily_xts)
         return (the_tibble)
       }
-      return (get(ticker))
+      return (yahoo_daily_xts)
     }
   } else {
     message(paste(ticker, ".csv does not exist locally, going remote...", sep = ""))
-    if (ticker == "BRK.B"){
-      message("ticker is BRK.B, replacing with BRK-B")
-      yahoo_Main_retrieve_and_write("BRK-B", yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
-    } else if (ticker %in% reserved_R_strings){
-      yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
-      ticker<-paste(ticker, ".", ticker, sep = "")
-    }
-    else {
-      yahoo_Main_retrieve_and_write(ticker, yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), write_file = TRUE)
-    }
+    yahoo_daily_xts<-getHistoricalData_yahoo(ticker, yahoo_stock_prices_dir = yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), do_write = TRUE)
+    #yahoo_Main_retrieve_and_write("BRK-B", yahoo_stock_prices_dir, start_date = from_date, end_date = Sys.Date(), do_write = TRUE)
     if (return_format == "tibble"){
-      the_tibble<-convertYahoo_xts2tibble(ticker)
+      the_tibble<-convertYahoo_xts2tibble(ticker, xts_obj = yahoo_daily_xts)
       return (the_tibble)
     }
-    return (get(ticker))
+    return (yahoo_daily_xts)
   }
 }
 
@@ -243,5 +352,6 @@ subset_yahoo_xts<-function(ticker, from, to, xts_obj = NULL){
     the_xts<-xts_obj
   fromTo<-paste(from, to, sep = "/")
   the_xts<-the_xts[fromTo]
-  do.call("<<-", list(ticker, the_xts))
+  return (the_xts)
+  
 }
