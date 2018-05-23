@@ -142,7 +142,6 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
     message(paste("primary exchange for ", ticker, " is ", primary_exch, sep = ""))
     contract_obj<-twsSTK(ticker, primary = primary_exch)
     if (is.na(end_date_time)) {
-      message("calling reqHistoricalData...")
       ticker_hist_data<-tryCatch(reqHistoricalData(ibgConnection, contract_obj, whatToShow = whatToShow, barSize = barSize, duration = duration), 
                                  error = function(e) {message(paste(ticker, "Failed", sep = ",")); write_error_log(ticker, error_log_file)})
     }

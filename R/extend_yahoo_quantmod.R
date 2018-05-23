@@ -147,7 +147,6 @@ adjustOHLC_wrapper<-function(tickers){
 
 adjustOHLC_yahoo<-function(ticker, xts_obj, columnNames = NULL){
   if (!is.null(columnNames)){
-    message(paste("columnNames: ", columnNames, sep=""))
     names(xts_obj) <- make.names(columnNames)
   } else {
     columnNames <- c(names(xts_obj))

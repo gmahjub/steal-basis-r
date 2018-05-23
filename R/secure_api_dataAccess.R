@@ -135,7 +135,7 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_class, port_number = 7496){
+eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_class, port_number = 7496, force_noSplit = FALSE){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
   message(paste("connect to IB API port number ", port_number, sep = ""))
@@ -190,6 +190,7 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_cla
       #remote_intraday_tibble<-getHistoricalData_forex(ticker, barSize = "1 min", duration = "1 Y", whatToShow = "TRADES", error_log_file = error_log,
       #                                                port_number = port_number)
     } else {
+      # this would be EQUITIES, and the split is only for intraday equities
       remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = EQUITY_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 1, 
                                                       whatToShow = "TRADES", hist_len = 12, hist_time_unit = 'months')
       #remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, 
@@ -576,6 +577,12 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, asset_class, port_number, 
   }
   sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, 
          port_number = port_number, asset_class = asset_class)
+}
+
+eod_batch_IBKR_daily<-function(path_to_ticker_dir, asset_class, port_number, error_log_file_name = "IBKRgetDailyHist_FailStatus.csv", tickers=NULL){
+  error_log_file<-paste(Sys.Date(), error_log_file_name, sep = ".")
+  message(paste("Error log file is ", error_log_file, sep = ""))
+  
 }
 
 #' getTickersAsVector
