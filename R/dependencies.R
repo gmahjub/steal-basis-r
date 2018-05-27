@@ -60,7 +60,7 @@ if (Sys.info()['sysname'] == "Darwin"){
   source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
   api_key_file<-paste(getwd(), "../../../data/ghazy_mahjub_api_keys.csv", sep = "/")
   yahoo_stock_prices_dir<-paste(getwd(), "../../../data/yahoo/", sep = "/")
-  iBrokers_stock_prices_dir<-paste(getwd(), "../../../data/IBKR/daily/stock.prices/", sep = "/")
+  IBKR_adjDaily_stock_prices_dir<-paste(getwd(), "../../../data/IBKR/daily/stock.prices/", sep = "/")
   av_stock_prices_dir<-paste(getwd(), "../../../data/alphavantage/", sep = "/")
 } else {
   source(paste(getwd(), 'R/write_ticker_csv.R', sep = "/"))
@@ -70,7 +70,7 @@ if (Sys.info()['sysname'] == "Darwin"){
   source(paste(getwd(), 'R/secure_api_dataAccess.R', sep = "/"))
   api_key_file<-paste(getwd(), "..\\..\\..\\..\\data\\ghazy_mahjub_api_keys.csv", sep = "\\")
   yahoo_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\yahoo\\", sep = "\\")
-  iBrokers_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\IBKR\\daily\\stock.prices\\", sep = "\\")
+  IBKR_adjDaily_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\IBKR\\daily\\stock.prices\\", sep = "\\")
   av_stock_prices_dir<-paste(getwd(), "..\\..\\..\\..\\data\\alphavantage\\daily\\", sep ="\\")
 }
 start_date<-"2017-01-01"

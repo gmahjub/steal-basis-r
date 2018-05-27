@@ -16,9 +16,8 @@ plot_index_sector_breakdown_count<-function(idx_comps_tibble){
     ggplot(aes(x = sector %>% fct_reorder(count), y = count)) +
     geom_bar(stat = "identity") + geom_text(aes(label = count), size = 3, nudge_y = 4, 
                                             nudge_x = .1) + scale_y_continuous(limits = c(0,50)) + 
-    ggtitle(label = "Sector Frequency Among SP500 Stocks") + xlab(label = "GICS Sector") + 
+    ggtitle(label = "Sector Frequency Among Index Holdings") + xlab(label = "GICS Sector") + 
     theme(plot.title = element_text(size = 16)) + coord_flip()
-
 }
 
 #' plot_index_sector_breakdown_mkt_cap
@@ -34,12 +33,10 @@ plot_index_sector_breakdown_count<-function(idx_comps_tibble){
 #'
 #' @examples
 plot_index_sector_breakdown_mkt_cap<-function(idx_comps_tibble){
-  
   idx_comps_tibble %>% group_by(sector) %>% dplyr::summarise(sector_weight = round(sum(weight)*100.0, 2)) %>%
     ggplot(aes(x = sector %>% fct_reorder(sector_weight), y = sector_weight)) + 
     geom_bar(stat = "identity") + geom_text(aes(label = sector_weight), size = 3, nudge_y = 4,
                                             nudge_x = .1) + scale_y_continuous(limits = c(0,50)) + 
-    ggtitle(label = "Sector Weighting Among SP500 Stocks") + xlab(label = "GICS Sector") +
+    ggtitle(label = "Sector Weighting Among Index Holdings") + xlab(label = "GICS Sector") +
     theme(plot.title = element_text(size = 16)) + coord_flip()
-  
 }

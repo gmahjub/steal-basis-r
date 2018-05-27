@@ -27,11 +27,14 @@ write_ticker_csv <- function(ticker, path_to_ticker_dir, xts_obj = NULL, column_
 
 #' write_intraday_IBKR
 #'
-#' @param ticker 
-#' @param data_obj 
-#' @param path_to_ticker_dir 
-#' @param column_names 
-#' @param intraday 
+#' Write out IBKR ticks file. They don't have to be intraday ticks, we use this
+#' same function for daily bars also.
+#'
+#' @param ticker
+#' @param data_obj
+#' @param path_to_ticker_dir
+#' @param column_names
+#' @param intraday
 #'
 #' @return
 #' @export

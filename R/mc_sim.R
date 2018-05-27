@@ -262,5 +262,3 @@ get_log_returns<-function(ticker, xts_obj = NULL, price_type_func = "Ad"){
   names(log_returns) <-paste(ticker, ".Log.Returns", sep = "")
   return(log_returns)
 }
-
-

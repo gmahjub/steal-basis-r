@@ -135,7 +135,7 @@ get_intraday_data_alphavantager_no_exception_handling<-function(ticker, interval
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_class, port_number = 7496, force_noSplit = FALSE){
+eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_class, IBKR_px_type = NA, port_number = 7496, force_noSplit = FALSE){
   require(lubridate)
   message(paste("begin intra minutely tick pull", ticker, sep=" "))
   message(paste("connect to IB API port number ", port_number, sep = ""))
@@ -143,27 +143,58 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_cla
   remote<-FALSE
   if (file.exists(file_path)){
     message(paste("file does exist...", path_to_ticker_dir, sep = ""))
-    local_intraday_tibble<-as.tibble(read.csv(file = file_path, header = TRUE, sep=',', nrows=-1,
-                                              colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer",
-                                                             "numeric", "integer", "integer")))
+    if (is.na(IBKR_px_type)) {
+      local_intraday_tibble<-as.tibble(read.csv(file = file_path, header = TRUE, sep=',', nrows=-1,
+                                                colClasses = c("POSIXct", "numeric", "numeric", "numeric", "numeric", "integer",
+                                                              "numeric", "integer", "integer")))
+    } else if (IBKR_px_type == "ADJUSTED_LAST") {
+      local_intraday_tibble<-as.tibble(read.csv(file = file_path, header = TRUE, sep = ',', nrows = -1,
+                                                colClasses = c("Date", "numeric", "numeric", "numeric", "numeric", "integer", 
+                                                               "numeric", "integer", "integer")))
+    }
     local_intraday_tibble<-local_intraday_tibble[,1:ncol(local_intraday_tibble)]
     last_row_of_local<-local_intraday_tibble[nrow(local_intraday_tibble),]
     last_timestamp_local<-last_row_of_local$BarTimeStamp
+    if (IBKR_px_type == "ADJUSTED_LAST"){
+      when_was_mkt_open_last_value<-date(when_was_mkt_open_last())
+    }
+    else if (is.na(IBKR_px_type)){
+      when_was_mkt_open_last_value<-when_was_mkt_open_last()
+    }
     save_original_tz <- last_timestamp_local
     remote_intraday_tibble<-FALSE
-    if (difftime(last_timestamp_local, when_was_mkt_open_last(), tz="UTC", units = c("mins")) < -1) {
+    message(paste("market was last open ", when_was_mkt_open_last_value))
+    message(paste("last timestamp local ", last_timestamp_local))
+    if (difftime(last_timestamp_local, when_was_mkt_open_last_value, tz="UTC", units = c("mins")) < -1) {
       message(paste("file exists, but not up to date, going remote...", ticker, sep = ""))
-      if (asset_class == "Futures"){
+      if (toupper(asset_class) == FUTURE_ASSET_CLASS){
         remote_intraday_tibble <- getHistoricalData_futs(ticker, error_log_file = error_log, port_number = port_number)
-      } else if (asset_class == "FOREX"){
+      } else if (toupper(asset_class) == FOREX_ASSET_CLASS){
         remote_intraday_tibble <- getHistoricalData_forex(ticker, error_log_file = error_log, port_number = port_number)
-      } else {
-        remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = port_number)
+      } else if (toupper(asset_class) == EQUITY_ASSET_CLASS){
+        if (IBKR_px_type == "ADJUSTED_LAST"){
+          # we need to calculate how many days are missing from the local tibble and pull that many days remotely.
+          num_days_local_missing<-difftime(last_timestamp_local, date(when_was_mkt_open_last()), tz = "UTC", units = c("days"))
+          message(paste("number of days missing from local is ", num_days_local_missing, sep = ""))
+          if (num_days_local_missing < 0){
+            duration_string<-paste(num_days_local_missing*-1, "D", sep = " ")
+            message(paste("duration string is ", duration_string, sep = ""))
+            remote_intraday_tibble<-getHistoricalData(ticker, barSize = "1 day", duration = duration_string, 
+                                                      whatToShow = IBKR_px_type, write_out = FALSE, 
+                                                      path_to_ticker_dir = path_to_ticker_dir, error_log_file = error_log, 
+                                                      port_number = 4001, end_date_time = "")
+          } else {
+            message(paste("local file is up to date...", file_path, sep = ""))
+          }
+        } else {
+          remote_intraday_tibble <- getHistoricalData(ticker, error_log_file = error_log, port_number = port_number)
+        }
       }
       if (!is.null(remote_intraday_tibble)){
         remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
         remote<-TRUE
         if (!is.null(remote_intraday_tibble)){
+          message(save_original_tz)
           new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
           intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
           intraday_tibble_obj<-tk_xts(intraday_tibble_obj, date_var = BarTimeStamp, select = -BarTimeStamp)
@@ -179,22 +210,19 @@ eod_batch_IBKR_helper<-function(ticker, path_to_ticker_dir, error_log, asset_cla
     message(paste("no existing file, going remote...", ticker, sep = ""))
     remote<-TRUE
     if (toupper(asset_class) == FUTURE_ASSET_CLASS){
-      #split_IBKR_histData_req<-function(symbol, asset_class, error_log, currency = "USD", port_number = 4001, useRTH = 1, whatToShow = "TRADES", hist_len_days = 365){
       remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = FUTURE_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 0, 
                                                       whatToShow = "TRADES")
-      #remote_intraday_tibble<-getHistoricalData_futs(ticker, barSize = "1 min", duration = "12 M", whatToShow = "TRADES", error_log_file = error_log, 
-      #                                               port_number = port_number)
     } else if (toupper(asset_class) == FOREX_ASSET_CLASS){
       remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = FOREX_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 1, 
                                                       whatToShow = "MIDPOINT")
-      #remote_intraday_tibble<-getHistoricalData_forex(ticker, barSize = "1 min", duration = "1 Y", whatToShow = "TRADES", error_log_file = error_log,
-      #                                                port_number = port_number)
-    } else {
-      # this would be EQUITIES, and the split is only for intraday equities
-      remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = EQUITY_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 1, 
-                                                      whatToShow = "TRADES", hist_len = 12, hist_time_unit = 'months')
-      #remote_intraday_tibble <- getHistoricalData(ticker, barSize = "1 min", duration = "6 M", whatToShow = "TRADES", error_log_file = error_log, 
-      #                                          port_number = port_number )
+    } else if (toupper(asset_class) == EQUITY_ASSET_CLASS) {
+      if (IBKR_px_type == "ADJUSTED_LAST"){
+        remote_intraday_tibble<-getHistoricalData(ticker, barSize = "1 day", duration = '20 Y', whatToShow = IBKR_px_type, write_out = FALSE, path_to_ticker_dir = path_to_ticker_dir, 
+                                                  error_log_file = error_log, port_number = 4001, end_date_time = "")
+      } else {
+        remote_intraday_tibble<-split_IBKR_histData_req(ticker, asset_class = EQUITY_ASSET_CLASS, error_log = error_log, port_number = port_number, useRTH = 1, 
+                                                        whatToShow = "TRADES", hist_len = 12, hist_time_unit = 'months')
+      }
     }
     if (!is.null(remote_intraday_tibble)){
       do.call("<-", list(paste(ticker, "intra", sep='.'), remote_intraday_tibble))
@@ -558,7 +586,7 @@ eod_batch_av_intraday <- function(path_to_ticker_dir, path_to_api_key_file, list
 #' @export
 #'
 #' @examples
-eod_batch_IBKR_intraday<-function(path_to_ticker_dir, asset_class, port_number, error_log_file_name = "IBKRgetHist_FailStatus.csv", tickers=NULL){
+eod_batch_IBKR_intraday<-function(path_to_ticker_dir, asset_class, port_number, IBKR_px_type = NA, error_log_file_name = "IBKRgetHist_FailStatus.csv", tickers=NULL){
   error_log_file<-paste(Sys.Date(), error_log_file_name, sep = ".")
   message(paste("Error log file is ", error_log_file, sep = ""))
   if (Sys.info()['sysname'] == "Darwin"){
@@ -575,8 +603,14 @@ eod_batch_IBKR_intraday<-function(path_to_ticker_dir, asset_class, port_number, 
     close(log_con)
     tickers<-getSymbolsUniverse(assetClass = toupper(asset_class))
   }
-  sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, 
-         port_number = port_number, asset_class = asset_class)
+  if (is.na(IBKR_px_type)){
+    sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, 
+           port_number = port_number, asset_class = asset_class)
+  } else {
+    sapply(tickers, FUN = eod_batch_IBKR_helper, path_to_ticker_dir = path_to_ticker_dir, error_log = error_log_file, 
+           IBKR_px_type = IBKR_px_type, port_number = port_number, asset_class = asset_class)
+  }
+  
 }
 
 eod_batch_IBKR_daily<-function(path_to_ticker_dir, asset_class, port_number, error_log_file_name = "IBKRgetDailyHist_FailStatus.csv", tickers=NULL){

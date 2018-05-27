@@ -42,7 +42,7 @@ CAGR_sim<-(CAGR_res$CAGR_Sim %>% round(4))
 message(paste("Historical CAGR - ", ticker, " : ", CAGR_hist*100.0, " %", sep = ""))
 message(paste("Simulated CAGR - ", ticker, " : ", CAGR_sim*100.0, " %", sep = ""))
 
-run_batch_mc_sim<-function(idx_nm = "DOW", start_date = "2007-01-01"){
+run_batch_log_returns<-function(idx_nm = "DOW", start_date = "2007-01-01"){
   index_holdings<-tq_index(idx_nm)
   rets_px_nested_tibble<- index_holdings %>% mutate(
     stock.prices = map(symbol,
