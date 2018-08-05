@@ -76,6 +76,7 @@ set_riingo_api_key<-function(api_key_file){
 #'
 #' @examples
 get_intraday_data_alphavantager<-function(ticker, error_log, interval="1min", outputsize = "full"){
+  set_alphavantage_api_key(path_to_api_key_file)
   tibble_obj<-tryCatch(
     av_get(symbol=ticker, av_fun="TIME_SERIES_INTRADAY", interval=interval, outputsize=outputsize),
     error = function(e) { message("there was an error, writing ticker to error log..."); write_error_log(ticker, error_log); Sys.sleep(5)})
