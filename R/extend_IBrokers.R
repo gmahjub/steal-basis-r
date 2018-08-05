@@ -159,6 +159,77 @@ getHistoricalData<-function(ticker, barSize = "1 min", duration = '1 W', whatToS
   }
 }
 
+#' getIbkrDaily_xts
+#'
+#' @param ticker 
+#' @param path_to_ticker_dir 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+getIbkrDaily_xts<-function(ticker, path_to_ticker_dir, return_format = "xts"){
+  file_path <- paste(path_to_ticker_dir, ticker, ".csv", sep = "")
+  if (file.exists(file_path)){
+    message(paste("file does exist...", path_to_ticker_dir, sep = ""))
+    local_intraday_tibble<-as.tibble(read.csv(file = file_path, header = TRUE, sep = ',', nrows = -1,
+                                              colClasses = c("Date", "numeric", "numeric", "numeric", "numeric", "integer", 
+                                                              "numeric", "integer", "integer")))
+    local_intraday_tibble<-local_intraday_tibble[,1:ncol(local_intraday_tibble)]
+    last_row_of_local<-local_intraday_tibble[nrow(local_intraday_tibble),]
+    last_timestamp_local<-last_row_of_local$BarTimeStamp
+    when_was_mkt_open_last_value<-date(when_was_mkt_open_last())
+    save_original_tz <- last_timestamp_local
+    remote_intraday_tibble<-FALSE
+    num_days_local_missing<-difftime(last_timestamp_local, date(when_was_mkt_open_last()), tz = "UTC", units = c("days"))
+    message(paste("number of days missing from local is ", num_days_local_missing, sep = ""))
+    if (num_days_local_missing < 0){
+      duration_string<-paste(num_days_local_missing*-1, "D", sep = " ")
+      message(paste("duration string is ", duration_string, sep = ""))
+      remote_intraday_tibble<-getHistoricalData(ticker, barSize = "1 day", duration = duration_string, 
+                                                whatToShow = IBKR_px_type, write_out = FALSE, 
+                                                path_to_ticker_dir = path_to_ticker_dir, error_log_file = error_log, 
+                                                port_number = 4001, end_date_time = "")
+    } else {
+      # file is up to date, return the file subsetted accordingly, in tibble or xts, accordingly.
+      ibkr_daily_xts<-as.xts(read.zoo(file=file_path, header = TRUE, sep = ",", nrows = -1,
+                                       colClasses = c("Date", "numeric", "numeric", "numeric", "numeric", "integer",
+                                                      "numeric", "integer", "integer")))
+      if (return_format == "tibble"){
+        the_tibble<-convertYahoo_xts2tibble(ticker, ibkr_daily_xts)
+        return (the_tibble)
+      }
+      return (ibkr_daily_xts)
+    }
+  } else {
+    # file does not exist, therefore, download all the data.
+    save_original_tz <- NULL
+    ibkr_daily_xts<-getHistoricalData(ticker, barSize = "1 day", duration = '20 Y', whatToShow = IBKR_px_type, 
+                                              write_out = FALSE, path_to_ticker_dir = path_to_ticker_dir, 
+                                              error_log_file = error_log, port_number = 4001, end_date_time = "")
+    do.call("<-", list(paste(ticker, "intra", sep='.'), ibkr_daily_xts))
+    write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep = ".")), path_to_ticker_dir = path_to_ticker_dir, intraday = FALSE)
+    if (return_format == "tibble"){
+      the_tibble<-convertYahoo_xts2tibble(ticker, ibkr_daily_xts)
+      return (the_tibble)
+    }
+    return (ibkr_daily_xts)
+  }
+  # below is executed if there was a file locally already, and the file needed to be updated.
+  if (!is.null(remote_intraday_tibble)){
+    remote_intraday_tibble <- tk_tbl(remote_intraday_tibble, rename_index = "BarTimeStamp")
+    remote<-TRUE
+    if (!is.null(remote_intraday_tibble) && !is.null(save_original_tz)){
+      new_timeseries_to_append<-remote_intraday_tibble %>% filter(BarTimeStamp > save_original_tz)
+      intraday_tibble_obj<-rbind(local_intraday_tibble, new_timeseries_to_append)
+      intraday_tibble_obj<-tk_xts(intraday_tibble_obj, date_var = BarTimeStamp, select = -BarTimeStamp)
+      do.call("<-", list(paste(ticker, "intra", sep='.'), intraday_tibble_obj))
+      write_intraday_IBKR(ticker, get(paste(ticker, "intra", sep='.')), path_to_ticker_dir = path_to_ticker_dir, intraday = FALSE)
+      return (intraday_tibble_obj)
+    }
+  }
+}
+
 #' getFutContractObject
 #'
 #' Return the contract object based on provided symbol, using reqContractDetails

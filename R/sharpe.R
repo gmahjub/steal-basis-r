@@ -1,8 +1,10 @@
 #' get_period_open_to_close_sharpe
+#' 
+#' Sharpe of open to close returns.
 #'
 #' @param op2cl_returns_tibble
 #' @param window_size
-#' @param annualize defaults to FALSE, if annualize sharpe desird, set to TRUE
+#' @param annualize defaults to FALSE, if annualize sharpe desired, set to TRUE
 #' @param scale 252 for daily periodicity, 52 for weekly, 12 for monthly.
 #'
 #' @return tibble object with period open to close sharpe.
@@ -74,6 +76,8 @@ get_rolling_Sharpe_AdCl_to_AdCl<-function(tibble_obj, num_periods, periodicity="
 }
 
 #' get_period_low_to_next_period_high_sharpe
+#' 
+#' Sharpe of the return betwen period t low to period t+1 high
 #'
 #' @param period_low_to_next_period_high_returns_tibble
 #' @param window_size
@@ -93,6 +97,9 @@ get_period_low_to_next_period_high_sharpe<-function(period_low_to_next_period_hi
 }
 
 #' get_period_close_to_next_period_open_sharpe
+#' 
+#' Sharpe of returns between close @ period t to open at period t+1.
+#' Basically the sharpe of overnight returns.
 #'
 #' @param period_close_to_next_period_open_returns_tibble
 #' @param window_size
@@ -112,6 +119,9 @@ get_period_close_to_next_period_open_sharpe<-function(period_close_to_next_perio
 }
 
 #' get_period_high_to_next_period_low_sharpe
+#' 
+#' Sharpe of returns between high at period t to low at period t+1.
+#' Rolling sharpe of length window size.
 #'
 #' @param period_high_to_next_period_low_returns_tibble
 #' @param window_size
@@ -130,6 +140,9 @@ get_period_high_to_next_period_low_rolling_sharpe<-function(period_high_to_next_
 }
 
 #' get_period_high_to_next_period_low_sharpe
+#' 
+#' Sharpe of returns between high @ period t to low @ period t+1.
+#' Rolling sharpe of length window size.
 #'
 #' @param period_high_to_next_period_low_returns_tibble
 #' @param window_size
